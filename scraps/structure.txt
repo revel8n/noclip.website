@@ -1,0 +1,24 @@
+`ui/ui.ts`
+- new entry point for ui state, management, components
+- top level lightweight component for invoking `ui/library`
+
+`ui/common/`
+- utility functions
+- generic components (scrollbars, buttons, toggles)
+- misc
+
+`ui/library`
+- primary heavyweight component for browsing noclip library and locations
+- child components (sidebar list, location grid)
+
+`ui/library/search/`
+- full width global search and filter
+
+`ui/library/advanced/`
+- full width advanced settings panel
+
+`ui/toolbar`
+- top-level toolbar component
+
+`ui/data/` (if necessary)
+- data presentation / piping / transformation 

@@ -1,0 +1,9 @@
+.night-mode {
+  [class*="#{$hintPrefix}"] {
+    &:after {
+      background: $hintNightBg;
+      color: $hintNightTextColor;
+    }
+    @include arrow-border-color($hintNightBg);
+  }
+}

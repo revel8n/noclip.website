@@ -1,0 +1,85 @@
+group (game)
+region
+location 
+
+
+getpPublicLocations()
+
+
+--
+
+
+
+meta
+
+
+
+SceneDesc
+
+
+save state
+
+category > 
+
+__
+
+
+
+Scene abstract concept
+__
+
+
+
+Scene is the level
+
+Scene Desc
+
+
+
+_
+Honeyhive Galaxy
+
+like locations but don't have save states
+
+
+
+sceneDescLocationCreator - translates list of sceneGroups into locations
+
+
+sceneGroups
+
+__
+
+does every level
+
+
+getLocationFromSceneDesc 
+-> sceneGroup + sceneDesc + saveState
+
+
+__
+
+
+sceneDesc into the location
+
+sceneDescLoader
+
+
+sceneDescLocationCreator
+
+_
+
+
+SceneDescLocation (Location that was created from the old SceneDesc system)
+SceneDescLocationCreator (this thing creates a bunch of Locations!!! using the old SceneDesc system)
+SceneDescLocationLoader (I will load a location that if it was created through a SceneDescLocation)
+
+
+Name = Luigi Circuit
+Tag = Mushroom Cup
+GroupName = Mario Kart Wii
+GroupTag = Wii
+
+
+sceneGroup -> groupName
+id / name

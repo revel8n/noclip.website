@@ -188,6 +188,7 @@ export class DataFetcher {
         } else {
             this.useDevelopmentStorage = false;
         }
+        console.log('usedevstorage', this.useDevelopmentStorage);
     }
 
     public abort(): void {

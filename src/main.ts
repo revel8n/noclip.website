@@ -90,6 +90,8 @@ import { FPSCameraController } from './Camera';
 import { mat4 } from 'gl-matrix';
 import { GfxDevice } from './gfx/platform/GfxPlatform';
 
+import { NUI } from './ui/ui';
+
 const sceneGroups = [
     "Wii",
     Scenes_MarioKartWii.sceneGroup,
@@ -262,6 +264,7 @@ class Main {
     public viewer: Viewer;
     public sceneGroups: (string | SceneGroup)[];
     public ui: UI;
+    public nui: NUI;
     public saveManager = GlobalSaveManager;
     public paused: boolean = false;
 
@@ -343,6 +346,7 @@ class Main {
         };
 
         this._makeUI();
+        this._makeNUI();
 
         this.dataFetcher = new DataFetcher(this.ui.sceneSelect);
         await this.dataFetcher.init();
@@ -654,10 +658,9 @@ class Main {
     private _loadSceneGroups() {
         // this.ui.sceneSelect.setSceneGroups(this.sceneGroups);
 
-        // Pull out Mario Kart Wii locations.
         const cards: LocationCardLocation[] = [];
         for (const location of this.sceneDescLocationCreator.getPublicLocations()) {
-            if (location.groupName !== 'Mario Kart Wii')
+            if (location.groupName !== 'Super Mario 64 DS')
                 continue;
 
             let card = cards.find((card) => card.title === location.title);
@@ -668,6 +671,8 @@ class Main {
             if (location.screenshotURL !== undefined)
                 card.screenshotURLs.push(location.screenshotURL);
         }
+
+        // store locations ...
 
         this.ui.sceneSelect.setLocations(cards);
     }
@@ -683,6 +688,11 @@ class Main {
             this._syncWebXRSettingsVisible();
         };
         this._syncWebXRSettingsVisible();
+    }
+
+    private _makeNUI() {
+        this.nui = new NUI(this.viewer);
+        this.toplevel.appendChild(this.nui.elem);
     }
 
     private _syncWebXRSettingsVisible(): void {
