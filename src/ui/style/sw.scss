@@ -608,7 +608,7 @@ $tileSize: 150px;
       background: #aebff2;
     }
 
-    &.dark {
+    &.dark, &.active {
       background: #332f35;
       color: white;
     }
