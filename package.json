@@ -34,6 +34,7 @@
   },
   "dependencies": {
     "@sentry/browser": "^5.7.1",
+    "@types/simplebar": "^5.1.1",
     "@types/webmidi": "^2.0.4",
     "animated-scroll-to": "^2.0.10",
     "crc-32": "^1.2.0",

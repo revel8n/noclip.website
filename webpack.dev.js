@@ -29,6 +29,7 @@ module.exports = merge(common, {
             loader: 'ts-loader',
             options: {
               happyPackMode: true,
+              transpileOnly: true,
             },
           },
         ],

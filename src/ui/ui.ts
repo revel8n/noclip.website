@@ -46,10 +46,10 @@ export class NUI {
   private selectedRegion: string;
   private selectedLocation: string;
 
-  public loadLocation;
+  public loadLocation: (location: Location) => void;
 
-  private regionOrder;
-  private locations;
+  private regionOrder: string[];
+  private locations: Locations[];
   private regionMap;
   private locationMap;
 
@@ -80,7 +80,7 @@ export class NUI {
         if (region != this.selectedRegion) {
           document.querySelector('.region.active')?.classList.remove('active');
           this.selectedRegion = region;
-          document.querySelector(`[data-region="${this.selectedRegion}"]`).classList.add('active');
+          document.querySelector(`[data-region="${this.selectedRegion}"]`)?.classList.add('active');
           this.renderLocations();
         }
         return;
@@ -91,7 +91,7 @@ export class NUI {
           if (locationId != this.selectedLocation) {
             document.querySelector('.location.active')?.classList.remove('active');
             this.selectedLocation = locationId;
-            document.querySelector(`[data-location="${this.selectedLocation}"]`).classList.add('active');
+            document.querySelector(`[data-location="${this.selectedLocation}"]`)?.classList.add('active');
             this.loadLocation(this.locationMap[this.selectedLocation]);
             this.placeholder.classList.remove('active');
           }
