@@ -1,6 +1,3 @@
-import * as Viewer from "..viewer";
-
-
 import SimpleBar from 'simplebar';
 import { animateScrollTo } from 'animated-scroll-to';
 import { randInt, sample, shuffle } from './common/common';
@@ -56,7 +53,7 @@ export class NUI {
   private regionMap;
   private locationMap;
 
-  constructor(public viewer: Viewer.viewer) {
+  constructor() {
     this.node = document.createElement('div');
     this.node.innerHTML = temp;
   }
