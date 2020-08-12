@@ -5,6 +5,24 @@ html,
   overflow: hidden;
 }
 
+.placeholder {
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: white;
+  background-image: url('./outset.png');
+  background-image: url('https://i.imgur.com/Mpy0ziH.png');
+  filter: blur(4px);
+  display: none;
+
+  &.active {
+    display: block;
+  }
+}
+
 .panel-input {
   font: inherit;
   color: currentColor;
@@ -42,35 +60,35 @@ html,
   animation-duration: 5000s;
 }
 
-main {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
+// main {
+//   position: absolute;
+//   top: 0;
+//   left: 0;
+//   bottom: 0;
 
-  /* Full height */
-  width: 100%;
-  height: 100%;
-  background-image: url("http://eskipaper.com/images/nintendo-wallpaper-4.jpg");
-  background-image: url("https://i.imgur.com/0oGGlzc.png");
-  background-image: url("https://i.imgur.com/ism9aCo.png");
+//   /* Full height */
+//   width: 100%;
+//   height: 100%;
+//   background-image: url("http://eskipaper.com/images/nintendo-wallpaper-4.jpg");
+//   background-image: url("https://i.imgur.com/0oGGlzc.png");
+//   background-image: url("https://i.imgur.com/ism9aCo.png");
 
-  background-image: url("img/yoshi-wasd.png");
+//   background-image: url("img/yoshi-wasd.png");
 
-  background-image: url("https://i.imgur.com/ism9aCo.png");
+//   background-image: url("https://i.imgur.com/ism9aCo.png");
 
-  background-image: url("img/outset.png");
+//   background-image: url("img/outset.png");
 
 
 
-  /* Center and scale the image nicely */
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
+//   /* Center and scale the image nicely */
+//   background-position: center;
+//   background-repeat: no-repeat;
+//   background-size: cover;
 
-  // background-size: 110% 110%;
-  // background-position-y: 44%;
-}
+//   // background-size: 110% 110%;
+//   // background-position-y: 44%;
+// }
 
 $titleOffset: 2.5%;
 $titleOffset: 2.5%;

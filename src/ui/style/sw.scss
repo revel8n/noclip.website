@@ -76,6 +76,9 @@ $titleBarHeight: 55px;
 $titleBarHeight: 45px;
 // $titleBarHeight: 0px;
 
+$leftWidth: 432px;
+$leftWidth: 420px;
+
 .sw-title-bar {
   position: absolute;
   top: 0;
@@ -90,14 +93,60 @@ $titleBarHeight: 45px;
 
   &.left-title {
     width: 270px;
+    width: $leftWidth;
+    margin-left: 0;
+    border: 0;
+    height: 70px;
+    /* background: #838ed1; */
+    /* background: #8de9d2; */
+    color: white;
+    /* background: #d85a93; */
+    color: #0a2540;
+    background: #0a2540;
+    background: #aef6e0d4;
+    /* background: #aef6e0; */
+
+    color: rgba(0, 0, 0, 0.87);
+
+    /* background: #23272a; */
+
+    /* background: #7dabf8;*/
+
+    background: #aebff2;
+
+    background: #63221e;
+    color: white;
+    background: #332f35;
+
     .game {
-      margin-top: 2px;
-      margin-left: 20px;
-      color: #010101;
-      font-family: $fontstack;
-      margin-top: -2px;
-      // margin-left: 35px;
+      color: inherit;
+      font-family: "sohne-mager";
+      /* font-family: "sohne-halbfett"; */
+      font-weight: initial;
+      font-size: 25px;
+      font-weight: 800;
+      text-align: right;
+      width: 100%;
+      text-align: center;
+      margin-left: 0px;
+      margin-top: 0px;
+      margin-left: -15px;
+      margin-left: -10px;
+      font-size: 28px;
+      margin-top: -4px;
     }
+
+    .sub {
+      font-size: 16px;
+    }
+  }
+
+  .icon {
+    width: 30px;
+    position: absolute;
+    left: 32px;
+    top: 20px;
+    top: 18px;
   }
 
   .game {
@@ -186,6 +235,8 @@ $titleBarHeight: 45px;
   height: calc(100% - #{$titleBarHeight});
   height: calc(100% - 35px);
   height: calc(100% - 45px);
+  height: calc(100% - 70px);
+
   position: absolute;
   bottom: 0;
   width: 100%;
@@ -194,7 +245,7 @@ $titleBarHeight: 45px;
   left: 100px;
 
   left: 0px;
-  width: 432px;
+  width: $leftWidth;
 
   //   background: linear-gradient(
   //     0deg,
@@ -272,7 +323,10 @@ $scrollRightMargin: 2px;
   height: 100%;
   width: 100%;
   margin-left: 100px;
+  margin-left: 82px;
   width: 328px;
+  width: $leftWidth - 104px;
+  width: $leftWidth - 104px + 18px;
   padding-bottom: 70px;
 }
 
@@ -288,9 +342,13 @@ $scrollRightMargin: 2px;
   padding-bottom: 100px;
   left: 410px;
   left: 432px;
+  left: $leftWidth;
+
 
   width: calc(100% - 414px);
   width: calc(100% - 436px);
+  width: calc(100% - #{$leftWidth + 4px});
+
 }
 
 .sw-list-scroll:hover {
@@ -306,8 +364,9 @@ $scrollRightMargin: 2px;
 .region {
   cursor: pointer;
   display: flex;
-  align-items: center;
-  /* justify-content: center; */
+  flex-direction: column;
+  /* align-items: center; */
+  justify-content: center;
   /* height: 40px; */
   line-height: 26px;
   font-family: "Transport New Web";
@@ -326,15 +385,34 @@ $scrollRightMargin: 2px;
 
   margin: 7px 22px 7px 14px;
   padding: 3px 22px;
+  margin-bottom: 0px;
+
+  &:after {
+      content: '';
+      width: 100%;
+      height: 1px;
+      background-color: #55555524;
+      margin-top: 8px;
+  }
 
   &.active {
     border-left: 3px solid #aef6e0;
     font-weight: 600;
+
+    border-left: 3px solid hsl(225 100% 89% / 1);
   }
 
   &:hover {
     border-left: 3px solid #aef6e0 !important;
-    font-weight: 600;
+    /* font-weight: 600; */
+
+    border-left: 3px solid hsl(225 100% 89% / 1) !important;
+
+    color: white;
+  }
+
+  .region-title {
+    pointer-events: none;
   }
 }
 
@@ -372,6 +450,10 @@ $scrollRightMargin: 2px;
     height: 55%;
     // background-color: rgba(246, 249, 252, 0.5);
     // box-shadow: 0 2px 4px 0 rgba(50, 50, 93, 0.1), 0 -1px 2px 0 rgba(50, 50, 93, 0.06);
+
+    &.single-row {
+      height: 344px;
+    }
   }
 
   &.scrollable {
@@ -448,9 +530,11 @@ $tileSize: 150px;
 
   margin-left: 55px;
 
+  flex-wrap: wrap;
+
   // margin-left: auto;
-  width: fit-content;
-  margin-right: 75px;
+  // width: fit-content;
+  // margin-right: 75px;
 
   //   margin-bottom: 15px;
 
@@ -463,9 +547,11 @@ $tileSize: 150px;
     margin-right: 0px;
 
     /* box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08); */
-    box-shadow: 0 4px 6px rgba(50, 50, 93, 0.31), 0 1px 3px rgba(0, 0, 0, 0.28);
-    box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.4);
-    box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.29);
+    // box-shadow: 0 4px 6px rgba(50, 50, 93, 0.31), 0 1px 3px rgba(0, 0, 0, 0.28);
+    // box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.4);
+    // box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.29);
+    filter: drop-shadow(0 4px 6px rgba(50, 50, 93, 0.11)) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.11));
+    filter: drop-shadow(0 4px 6px rgba(50, 50, 93, 0.11)) drop-shadow(0 6px 5px rgba(0, 0, 0, 0.11));
 
     transition: opacity 0.3s cubic-bezier(0.5, 0, 0, 1) 0s;
 
@@ -483,11 +569,48 @@ $tileSize: 150px;
       }
     }
 
-    &.dark {
-      .location-title {
-        background-color: #333;
-        color: white;
+    &.b {
+      width: 180px;
+      width: 186px;
+      margin-left: 18px;
+
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+
+      background: white;
+      background: #fafafa;
+      background: #aebff2;
+      background: #63221e;
+      background: #332f35;
+      background: #fafafa;
+
+      transition: background-color 0.2s;
+
+      .frame {
+        pointer-events: none;
+        margin: 5px;
+        margin: 4px;
+        margin-top: 0;
+        width: calc(100% - 8px);
+
+        .location-img-wrapper {
+          border-radius: 4px;
+          height: 104px;
+        }
       }
+    }
+
+    &:hover {
+      /* background: #332f35; */
+      color: white;
+      background: #aebff2;
+    }
+
+    &.dark {
+      background: #332f35;
+      color: white;
     }
 
     &.show {
@@ -508,12 +631,15 @@ $tileSize: 150px;
   }
 
   .location-title {
+    pointer-events: none;
+    white-space: nowrap;
+
     display: flex;
     align-items: center;
     justify-content: center;
     height: 50px;
-    background: white;
-    background: #fafafa;
+    // background: white;
+    // background: #fafafa;
 
     line-height: 26px;
     font-family: "Transport New Web";
@@ -579,6 +705,10 @@ $tileSize: 150px;
   left: 30px;
 
   bottom: 228px;
+
+  &.single-row {
+    bottom: 90px;
+  }
 
   &.hidden {
     opacity: 0;
@@ -675,4 +805,53 @@ $radius: 8px;
     Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol;
   /* font-family: "Product Sans"; */
   font-family: "Whitney SSm";
+}
+
+
+.sw-logo {
+  font-family: "sohne-mager";
+    /* font-family: "sohne-halbfett"; */
+    /* font-weight: initial; */
+    /* font-size: 25px; */
+    font-weight: 800;
+    text-align: right;
+    width: 100%;
+    /* text-align: center; */
+    /* margin-left: 0px; */
+    /* margin-top: 0px; */
+    /* margin-left: -15px; */
+    /* margin-left: -10px; */
+    font-size: 28px;
+    /* margin-right: 20px; */
+    /* margin: auto; */
+    /* margin-right: 20px; */
+    width: 130px;
+    background: #F0F5FA;
+    height: 100%;
+    margin-left: auto;
+    display: flex;
+    justify-content: flex-end;
+    padding-right: 20px;
+    align-items: center;
+    background: #F0F5FA;
+    background-color: #f6f9fc;
+
+    span {
+      color: #999;
+      /* color: hsl(210 50% 75% / 1); */
+      /* color: hsl(225 72% 75% / 1); */
+      /* color: #332f35; */
+      /* color: #6772e5; */
+      /* color: #7dabf8; */
+      color: hsl(0 22% 80% / 1);
+      color: hsl(235 40% 82% / 1);
+      color: hsl(2 35% 80% / 1);
+
+      color: hsl(0 25% 78% / 1);
+
+      color: #d7c1c1;
+
+      color: hsl(235 40% 82% / 1);
+
+    }
 }

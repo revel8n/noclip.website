@@ -659,6 +659,8 @@ class Main {
         // this.ui.sceneSelect.setSceneGroups(this.sceneGroups);
 
         const cards: LocationCardLocation[] = [];
+        const locations = [];
+
         for (const location of this.sceneDescLocationCreator.getPublicLocations()) {
             if (location.groupName !== 'Super Mario 64 DS')
                 continue;
@@ -667,14 +669,16 @@ class Main {
             if (card === undefined) {
                 card = { title: location.title, screenshotURLs: [], location };
                 cards.push(card);
+                locations.push(location);
             }
             if (location.screenshotURL !== undefined)
                 card.screenshotURLs.push(location.screenshotURL);
         }
 
-        // store locations ...
-
         this.ui.sceneSelect.setLocations(cards);
+        this.nui.setLocations(locations);
+
+        this.ui.elem.style.display = 'none';
     }
 
     private _makeUI() {
@@ -692,7 +696,10 @@ class Main {
 
     private _makeNUI() {
         this.nui = new NUI(this.viewer);
-        this.toplevel.appendChild(this.nui.elem);
+        this.toplevel.appendChild(this.nui.node);
+        this.nui.init();
+        this.nui.loadLocation = (location) => this._loadLocation(location);
+        // this.nui.debugRegions();
     }
 
     private _syncWebXRSettingsVisible(): void {

@@ -34,7 +34,30 @@ module.exports = {
       {
         test: /\.d\.ts$/,
         loader: 'declaration-loader'
-    },
+      },
+      { test: /\.(woff|woff2|eot|ttf|otf|svg)$/, use: ['url-loader?limit=100000'] },
+      // {
+      //   test: /\.css$/,
+      //   use: [
+      //     { loader: 'raw-loader' },
+      //     { loader: 'css-loader' },
+      //   ]
+      // },
+      {
+        test: /\.css$/i,
+        use: ['style-loader', 'css-loader'],
+      },
+      {
+        test: /\.s[ac]ss$/i,
+        use: [
+          // Creates `style` nodes from JS strings
+          'style-loader',
+          // Translates CSS into CommonJS
+          'css-loader',
+          // Compiles Sass to CSS
+          'sass-loader',
+        ]
+      },
     ],
   },
   plugins: [

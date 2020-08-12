@@ -83,3 +83,9 @@ GroupTag = Wii
 
 sceneGroup -> groupName
 id / name
+
+
+
+
+region
+loc group

@@ -1,0 +1,8 @@
+<div class="location mini">
+          <div class="location-title">Location Title</div><div style="
+    margin: 5px;
+    margin-top: 0;
+    /* width: 100%; */
+"><div class="location-img-wrapper" style="background-color: #63E7C2;border-radius: 4px;/* width: 100%; *//* height: calc(100% - 4px); *//* height: 100%; *//* padding: 5px; *//* margin: 5px; */"><img src="http://noclip.beyond3d.com/_Screenshots/mkwii_shopping_course_2.png"></div><div></div></div>
+          
+        </div>

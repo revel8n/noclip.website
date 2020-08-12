@@ -1,13 +1,16 @@
-// @import "style/fonts";
-@import "style/common";
-@import "style/base";
-@import "style/content";
-@import "style/cards";
-@import "style/controls";
-@import "style/hint";
-@import "style/sw";
+@import './fonts/camphor';
+@import './fonts/proxima_nova';
+@import './fonts/whitney';
+@import './fonts/transport';
+@import './fonts/sohne';
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+@import url('https://fonts.googleapis.com/css?family=Product+Sans:100,300,400,500,700,900&display=swap');
 
-@import "fonts/camphor";
-@import "fonts/proxima_nova";
-@import "fonts/whitney";
-@import "fonts/transport";
+@import './style/common';
+@import './style/base';
+@import './style/content';
+@import './style/cards';
+@import './style/controls';
+@import './style/hint';
+@import './style/sw';
+

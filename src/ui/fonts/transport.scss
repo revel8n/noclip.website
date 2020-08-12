@@ -1,19 +1,18 @@
-
 @font-face {
-  font-family: "transport new web";
-  src: url("/fonts/transport-new-heavy.ttf") format("opentype");
+  font-family: 'transport new web';
+  src: url('./fonts/transport-new-heavy.ttf') format('opentype');
   font-weight: 700;
   font-style: normal;
 }
 @font-face {
-  font-family: "transport new web";
-  src: url("/fonts/transport-new-medium.ttf") format("opentype");
+  font-family: 'transport new web';
+  src: url('./fonts/transport-new-medium.ttf') format('opentype');
   font-weight: 400;
   font-style: normal;
 }
 @font-face {
-  font-family: "transport new web";
-  src: url("/fonts/transport-new-light.ttf") format("opentype");
+  font-family: 'transport new web';
+  src: url('./fonts/transport-new-light.ttf') format('opentype');
   font-weight: 100;
   font-style: normal;
 }
