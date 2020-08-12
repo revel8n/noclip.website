@@ -695,7 +695,7 @@ class Main {
     }
 
     private _makeNUI() {
-        this.nui = new NUI(this.viewer);
+        this.nui = new NUI();
         this.toplevel.appendChild(this.nui.node);
         this.nui.init();
         this.nui.loadLocation = (location) => this._loadLocation(location);
