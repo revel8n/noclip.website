@@ -6,6 +6,7 @@ import { Destroyable } from "../SceneBase";
 import { SceneGfxBase } from "../viewer";
 import { UI } from "../ui";
 import { CameraController } from "../Camera";
+import InputManager from "../InputManager";
 
 // A Location is a combination of what was a "scene desc" and a "save state" was in V1.
 //
@@ -115,6 +116,7 @@ export interface LocationLoadContext {
 
     // TODO(jstpierre): Remove this in favor of the new loading approach?
     destroyablePool: Destroyable[];
+    inputManager: InputManager;
 
     /**
      * This callback will be called when the load is aborted. It will *not* be called

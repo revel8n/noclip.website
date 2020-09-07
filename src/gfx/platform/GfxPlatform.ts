@@ -135,6 +135,8 @@ export interface GfxBufferBinding {
 export interface GfxSamplerBinding {
     gfxTexture: GfxTexture | null;
     gfxSampler: GfxSampler | null;
+    // Late binding API, intended for GfxRenderer... not the best API layering....
+    lateBinding: string | null;
 }
 
 export interface GfxBindingLayoutDescriptor {
@@ -155,6 +157,7 @@ export interface GfxProgramDescriptorSimple {
 
 export interface GfxProgramDescriptor extends GfxProgramDescriptorSimple {
     ensurePreprocessed(vendorInfo: GfxVendorInfo): void;
+    associate(device: GfxDevice, program: GfxProgram): void;
 }
 
 export interface GfxInputLayoutDescriptor {
@@ -297,7 +300,7 @@ export interface GfxSwapChain {
 
 export interface GfxHostAccessPass {
     // Transfer commands.
-    uploadBufferData(buffer: GfxBuffer, dstWordOffset: number, data: Uint8Array, srcWordOffset?: number, wordCount?: number): void;
+    uploadBufferData(buffer: GfxBuffer, dstByteOffset: number, data: Uint8Array, srcByteOffset?: number, byteCount?: number): void;
     uploadTextureData(texture: GfxTexture, firstMipLevel: number, levelDatas: ArrayBufferView[]): void;
 }
 
@@ -366,6 +369,7 @@ export interface GfxDevice {
     setResourceName(o: GfxResource, s: string): void;
     setResourceLeakCheck(o: GfxResource, v: boolean): void;
     checkForLeaks(): void;
+    programPatched(o: GfxProgram, descriptor: GfxProgramDescriptorSimple): void;
     pushDebugGroup(debugGroup: GfxDebugGroup): void;
     popDebugGroup(): void;
 }

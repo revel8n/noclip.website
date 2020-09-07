@@ -1,22 +1,22 @@
 
 // Fun actor (not from orig. game) to visualize gravity areas.
 
-import * as GX from '../gx/gx_enum';
-import { LiveActor, ZoneAndLayer } from "./LiveActor";
-import { TDDraw } from "./DDraw";
-import { GXMaterialHelperGfx, ub_PacketParams, ub_PacketParamsBufferSize, fillPacketParamsData, ub_MaterialParams, MaterialParams, PacketParams } from "../gx/gx_render";
+import * as GX from '../../gx/gx_enum';
+import { LiveActor, ZoneAndLayer } from "../LiveActor";
+import { TDDraw } from "../DDraw";
+import { GXMaterialHelperGfx, MaterialParams, PacketParams } from "../../gx/gx_render";
 import { vec3, mat4 } from "gl-matrix";
-import { colorNewCopy, White, colorFromHSL } from "../Color";
-import { dfShow } from "../DebugFloaters";
-import { SceneObjHolder, getDeltaTimeFrames } from "./Main";
-import { GXMaterialBuilder } from '../gx/GXMaterialBuilder';
-import { connectToScene, getRandomFloat, calcGravityVector } from './ActorUtil';
-import { DrawType } from './NameObj';
-import { ViewerRenderInput } from '../viewer';
-import { invlerp, Vec3Zero, transformVec3Mat4w0, transformVec3Mat4w1 } from '../MathHelpers';
-import { GfxRenderInstManager } from '../gfx/render/GfxRenderer';
-import { GfxDevice } from '../gfx/platform/GfxPlatform';
-import { Camera } from '../Camera';
+import { colorNewCopy, White, colorFromHSL } from "../../Color";
+import { dfShow } from "../../DebugFloaters";
+import { SceneObjHolder, getDeltaTimeFrames } from "../Main";
+import { GXMaterialBuilder } from '../../gx/GXMaterialBuilder';
+import { connectToScene, getRandomFloat, calcGravityVector } from '../ActorUtil';
+import { DrawType, MovementType } from '../NameObj';
+import { ViewerRenderInput } from '../../viewer';
+import { invlerp, Vec3Zero, transformVec3Mat4w0, transformVec3Mat4w1 } from '../../MathHelpers';
+import { GfxRenderInstManager } from '../../gfx/render/GfxRenderer';
+import { GfxDevice } from '../../gfx/platform/GfxPlatform';
+import { Camera } from '../../Camera';
 
 const materialParams = new MaterialParams();
 const packetParams = new PacketParams();
@@ -76,7 +76,7 @@ export class GravityExplainer extends LiveActor {
         mb.setUsePnMtxIdx(false);
         this.materialHelper = new GXMaterialHelperGfx(mb.finish());
 
-        connectToScene(sceneObjHolder, this, 0x22, -1, -1, DrawType.GRAVITY_EXPLAINER);
+        connectToScene(sceneObjHolder, this, MovementType.MapObj, -1, -1, DrawType.GravityExplainer);
     }
 
     public initAfterPlacement(sceneObjHolder: SceneObjHolder): void {
@@ -223,15 +223,12 @@ export class GravityExplainer extends LiveActor {
     public draw(sceneObjHolder: SceneObjHolder, renderInstManager: GfxRenderInstManager, viewerInput: ViewerRenderInput): void {
         const template = renderInstManager.pushTemplateRenderInst();
 
-        template.allocateUniformBuffer(ub_PacketParams, ub_PacketParamsBufferSize);
-        mat4.identity(packetParams.u_PosMtx[0]);
-        fillPacketParamsData(template.mapUniformBufferF32(ub_PacketParams), template.getUniformBufferOffset(ub_PacketParams), packetParams);
-
         const device = sceneObjHolder.modelCache.device;
-
         this.materialHelper.setOnRenderInst(device, renderInstManager.gfxRenderCache, template);
-        const offs = template.allocateUniformBuffer(ub_MaterialParams, this.materialHelper.materialParamsBufferSize);
-        this.materialHelper.fillMaterialParamsDataOnInst(template, offs, materialParams);
+        this.materialHelper.allocateMaterialParamsDataOnInst(template, materialParams);
+
+        mat4.identity(packetParams.u_PosMtx[0]);
+        this.materialHelper.allocatePacketParamsDataOnInst(template, packetParams);
 
         this.ddraw.beginDraw();
         for (let i = 0; i < this.arrows.length; i++)

@@ -1,28 +1,27 @@
 
-import { vec3, mat4, vec2 } from "gl-matrix";
-import { SceneObjHolder, getObjectName, SceneObj, SpecialTextureType } from "./Main";
-import { GfxDevice, GfxBuffer, GfxBufferUsage, GfxBufferFrequencyHint, GfxInputLayout, GfxInputState, GfxFormat, GfxVertexAttributeDescriptor, GfxVertexBufferFrequency, GfxInputLayoutBufferDescriptor } from "../gfx/platform/GfxPlatform";
-import { ViewerRenderInput } from "../viewer";
-import { JMapInfoIter } from "./JMapInfo";
-import { clamp } from "../MathHelpers";
-import AnimationController from "../AnimationController";
-import { colorFromRGBA8 } from "../Color";
-import { assert } from "../util";
-import { makeStaticDataBuffer } from "../gfx/helpers/BufferHelpers";
-import { getVertexInputLocation } from "../gx/gx_material";
-import * as GX from "../gx/gx_enum";
-import { GXMaterialHelperGfx } from "../gx/gx_render";
-import { MaterialParams, PacketParams, ColorKind, ub_MaterialParams, ub_PacketParamsBufferSize, ub_PacketParams, fillPacketParamsData } from "../gx/gx_render";
-import { GfxRenderInstManager, makeSortKey, GfxRendererLayer } from "../gfx/render/GfxRenderer";
-import { DrawType, NameObj } from "./NameObj";
-import { LiveActor, ZoneAndLayer } from "./LiveActor";
-import { GfxRenderCache } from "../gfx/render/GfxRenderCache";
-import { GXMaterialBuilder } from "../gx/GXMaterialBuilder";
-import { BTIData } from "../Common/JSYSTEM/JUTTexture";
-import { initDefaultPos, connectToScene, loadBTIData, loadTexProjectionMtx, setTextureMatrixST, isValidDraw, vecKillElement } from "./ActorUtil";
-import { calcActorAxis } from "./MiscActor";
-import { VertexAttributeInput } from "../gx/gx_displaylist";
-import { isCameraInWater, WaterAreaHolder, WaterInfo } from "./MiscMap";
+import { vec3, mat4, vec2, ReadonlyVec3 } from "gl-matrix";
+import { SceneObjHolder, getObjectName, SceneObj, SpecialTextureType } from "../Main";
+import { GfxDevice, GfxBuffer, GfxBufferUsage, GfxBufferFrequencyHint, GfxInputLayout, GfxInputState, GfxFormat, GfxVertexAttributeDescriptor, GfxVertexBufferFrequency, GfxInputLayoutBufferDescriptor } from "../../gfx/platform/GfxPlatform";
+import { ViewerRenderInput } from "../../viewer";
+import { JMapInfoIter } from "../JMapInfo";
+import { clamp } from "../../MathHelpers";
+import AnimationController from "../../AnimationController";
+import { colorFromRGBA8 } from "../../Color";
+import { assert } from "../../util";
+import { makeStaticDataBuffer } from "../../gfx/helpers/BufferHelpers";
+import { getVertexInputLocation } from "../../gx/gx_material";
+import * as GX from "../../gx/gx_enum";
+import { GXMaterialHelperGfx } from "../../gx/gx_render";
+import { MaterialParams, PacketParams, ColorKind } from "../../gx/gx_render";
+import { GfxRenderInstManager, makeSortKey, GfxRendererLayer } from "../../gfx/render/GfxRenderer";
+import { DrawType, NameObj, MovementType } from "../NameObj";
+import { LiveActor, ZoneAndLayer } from "../LiveActor";
+import { GfxRenderCache } from "../../gfx/render/GfxRenderCache";
+import { GXMaterialBuilder } from "../../gx/GXMaterialBuilder";
+import { BTIData } from "../../Common/JSYSTEM/JUTTexture";
+import { initDefaultPos, connectToScene, loadBTIData, loadTexProjectionMtx, setTextureMatrixST, isValidDraw, vecKillElement, calcActorAxis } from "../ActorUtil";
+import { VertexAttributeInput } from "../../gx/gx_displaylist";
+import { isCameraInWater, WaterAreaHolder, WaterInfo } from "../MiscMap";
 
 function calcHeightStatic(wave1Time: number, wave2Time: number, x: number, z: number): number {
     const wave1 = 40 * Math.sin(wave1Time + 0.003 * z);
@@ -46,7 +45,7 @@ class OceanBowlPoint {
 class OceanBowlBloomDrawer extends NameObj {
     constructor(sceneObjHolder: SceneObjHolder, private bowl: OceanBowl) {
         super(sceneObjHolder, 'OceanBowlBloomDrawer');
-        connectToScene(sceneObjHolder, this, -1, -1, -1, DrawType.OCEAN_BOWL_BLOOM_DRAWER);
+        connectToScene(sceneObjHolder, this, -1, -1, -1, DrawType.OceanBowlBloomDrawer);
     }
 
     public draw(sceneObjHolder: SceneObjHolder, renderInstManager: GfxRenderInstManager, viewerInput: ViewerRenderInput): void {
@@ -96,7 +95,7 @@ export class OceanBowl extends LiveActor {
     constructor(zoneAndLayer: ZoneAndLayer, sceneObjHolder: SceneObjHolder, infoIter: JMapInfoIter) {
         super(zoneAndLayer, sceneObjHolder, getObjectName(infoIter));
 
-        connectToScene(sceneObjHolder, this, 0x22, -1, -1, DrawType.OCEAN_BOWL);
+        connectToScene(sceneObjHolder, this, MovementType.MapObj, -1, -1, DrawType.OceanBowl);
         initDefaultPos(sceneObjHolder, this, infoIter);
         calcActorAxis(this.axisX, this.axisY, this.axisZ, this);
 
@@ -115,7 +114,7 @@ export class OceanBowl extends LiveActor {
         this.bloomDrawer = new OceanBowlBloomDrawer(sceneObjHolder, this);
     }
 
-    public calcWaterInfo(dst: WaterInfo, pos: vec3, gravity: vec3): void {
+    public calcWaterInfo(dst: WaterInfo, pos: ReadonlyVec3, gravity: ReadonlyVec3): void {
         vec3.sub(scratchVec3, pos, this.translation);
         dst.depth = -vecKillElement(scratchVec3, scratchVec3, this.axisY);
     }
@@ -394,14 +393,12 @@ export class OceanBowl extends LiveActor {
         this.materialHelper.setOnRenderInst(device, cache, renderInst);
         renderInst.sortKey = makeSortKey(GfxRendererLayer.TRANSLUCENT, this.materialHelper.programKey);
 
-        const offs = renderInst.allocateUniformBuffer(ub_MaterialParams, this.materialHelper.materialParamsBufferSize);
-        this.materialHelper.fillMaterialParamsDataOnInst(renderInst, offs, materialParams);
+        this.materialHelper.allocateMaterialParamsDataOnInst(renderInst, materialParams);
 
         renderInst.setSamplerBindingsFromTextureMappings(materialParams.m_TextureMapping);
 
-        renderInst.allocateUniformBuffer(ub_PacketParams, ub_PacketParamsBufferSize);
         mat4.copy(packetParams.u_PosMtx[0], camera.viewMatrix);
-        fillPacketParamsData(renderInst.mapUniformBufferF32(ub_PacketParams), renderInst.getUniformBufferOffset(ub_PacketParams), packetParams);
+        this.materialHelper.allocatePacketParamsDataOnInst(renderInst, packetParams);
 
         renderInstManager.submitRenderInst(renderInst);
     }
@@ -429,14 +426,12 @@ export class OceanBowl extends LiveActor {
         this.materialHelperBloom.setOnRenderInst(device, cache, renderInst);
         renderInst.sortKey = makeSortKey(GfxRendererLayer.TRANSLUCENT, this.materialHelperBloom.programKey);
 
-        const offs = renderInst.allocateUniformBuffer(ub_MaterialParams, this.materialHelperBloom.materialParamsBufferSize);
-        this.materialHelperBloom.fillMaterialParamsDataOnInst(renderInst, offs, materialParams);
+        this.materialHelperBloom.allocateMaterialParamsDataOnInst(renderInst, materialParams);
 
         renderInst.setSamplerBindingsFromTextureMappings(materialParams.m_TextureMapping);
 
-        renderInst.allocateUniformBuffer(ub_PacketParams, ub_PacketParamsBufferSize);
         mat4.copy(packetParams.u_PosMtx[0], camera.viewMatrix);
-        fillPacketParamsData(renderInst.mapUniformBufferF32(ub_PacketParams), renderInst.getUniformBufferOffset(ub_PacketParams), packetParams);
+        this.materialHelperBloom.allocatePacketParamsDataOnInst(renderInst, packetParams);
 
         renderInstManager.submitRenderInst(renderInst);
     }

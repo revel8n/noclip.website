@@ -1,19 +1,20 @@
 
 import * as RARC from '../Common/JSYSTEM/JKRArchive';
-
-import { SceneObjHolder } from "./Main";
-import { JMapInfoIter, createCsvParser } from "./JMapInfo";
-import { ZoneAndLayer } from './LiveActor';
-import { Kinopio, TicoComet, EarthenPipe, StarPiece, CollapsePlane, BlackHole, Peach, PenguinRacer, Penguin, SimpleEffectObj, EffectObjR1000F50, GCaptureTarget, FountainBig, AstroEffectObj, AstroCountDownPlate, Butler, Rosetta, Tico, Sky, Air, ShootingStar, EffectObj20x20x10SyncClipping, EffectObj50x50x10SyncClipping, EffectObj10x10x10SyncClipping, AstroMapObj, EffectObjR100F50SyncClipping, PriorDrawAir, BlueChip, YellowChip, PeachCastleGardenPlanet, SimpleMapObj, CrystalCage, PlanetMap, HatchWaterPlanet, RotateMoveObj, LavaSteam, SignBoard, WoodBox, EffectObjR500F50, SurprisedGalaxy, AstroCore, TicoAstro, UFOKinokoUnderConstruction, KinopioAstro, createPurpleCoin, createCoin, createRailCoin, createPurpleRailCoin, requestArchivesCoin, requestArchivesPurpleCoin, createCircleCoinGroup, createPurpleCircleCoinGroup, Fountain, PhantomTorch, RandomEffectObj, OceanWaveFloater, FishGroup, SeaGullGroup, CoconutTreeLeafGroup, AirBubble, AirBubbleGenerator, RailMoveObj, SimpleEnvironmentObj, TreasureBoxCracked, RailPlanetMap, TicoRail, createSuperSpinDriverYellow, createSuperSpinDriverGreen, createSuperSpinDriverPink, requestArchivesSuperSpinDriver, SubmarineSteam, PalmIsland, WarpPod, WaterPlant, StarPieceGroup, Shellfish, PunchBox, ChooChooTrain, Trapeze, SwingRope, OceanRing, Flag, ElectricRail, ElectricRailMoving, QuestionCoin, FluffWind, OceanFloaterLandParts, Dossun, Tsukidashikun, PlantGroup, MovieStarter, WaterLeakPipe, OnimasuJump, DriftWood, UFOBreakable, UFOSolid, UFOKinoko, SideSpikeMoveStep, Pole, BrightSun, BrightObj, FirePressureRadiate, TimerSwitch, CoconutTree, Mogucchi, AstroDomeSky, AstroDome, MiniatureGalaxy, ScrewSwitch, ScrewSwitchReverse, DemoGroupFake, BallBeamer } from "./MiscActor";
-import { OceanBowl } from "./OceanBowl";
-import { NameObj } from './NameObj';
-import { createLightCtrlCylinder, createLightCtrlCube } from './LightData';
-import { createGlobalPlaneGravityObj, createGlobalPlaneInBoxGravityObj, createGlobalSegmentGravityObj, createGlobalPointGravityObj, createGlobalConeGravityObj, createGlobalPlaneInCylinderGravityObj, createGlobalCubeGravityObj, createGlobalDiskGravityObj, createGlobalWireGravityObj } from './Gravity';
-import { SwitchSynchronizer } from './Switch';
-import { createWaterAreaCube, createWaterAreaCylinder, createWaterAreaSphere, createSwitchCube, createSwitchSphere, createSwitchCylinder, requestArchivesWaterArea } from './MiscMap';
+import { createGlobalConeGravityObj, createGlobalCubeGravityObj, createGlobalDiskGravityObj, createGlobalPlaneGravityObj, createGlobalPlaneInBoxGravityObj, createGlobalPlaneInCylinderGravityObj, createGlobalPointGravityObj, createGlobalSegmentGravityObj, createGlobalWireGravityObj } from './Gravity';
 import { createBloomCube, createBloomCylinder, createBloomSphere } from './ImageEffect';
-import { createLensFlareArea, requestLensFlareArchives } from './LensFlare';
-import { OceanSphere } from './OceanSphere';
+import { createCsvParser, JMapInfoIter } from "./JMapInfo";
+import { createLensFlareArea, requestArchivesLensFlareArea } from './Actors/LensFlare';
+import { createLightCtrlCube, createLightCtrlCylinder } from './LightData';
+import { ZoneAndLayer } from './LiveActor';
+import { SceneObjHolder } from "./Main";
+import { Air, AirBubble, AirBubbleGenerator, AstroCountDownPlate, AstroDomeSky, AstroEffectObj, BallBeamer, BlackHole, BlueChip, BrightObj, BrightSun, ChooChooTrain, CoconutTree, CoconutTreeLeafGroup, createCircleCoinGroup, createCoin, createPurpleCircleCoinGroup, createPurpleCoin, createPurpleRailCoin, createRailCoin, createSuperSpinDriverGreen, createSuperSpinDriverPink, createSuperSpinDriverYellow, CrystalCage, DemoGroupFake, Dossun, EarthenPipe, EffectObj10x10x10SyncClipping, EffectObj20x20x10SyncClipping, EffectObj50x50x10SyncClipping, EffectObjR1000F50, EffectObjR100F50SyncClipping, EffectObjR500F50, ElectricRail, ElectricRailMoving, FirePressureRadiate, FishGroup, Flag, FluffWind, Fountain, FountainBig, FurPlanetMap, GCaptureTarget, HatchWaterPlanet, LavaGeyser, LavaProminence, LavaSteam, MiniatureGalaxy, Mogucchi, MovieStarter, OceanFloaterLandParts, OceanRing, OnimasuJump, PalmIsland, PhantomTorch, PlanetMap, PlantGroup, Pole, PriorDrawAir, PunchBox, QuestionCoin, RailPlanetMap, RandomEffectObj, requestArchivesCoin, requestArchivesPurpleCoin, requestArchivesSuperSpinDriver, ScrewSwitch, ScrewSwitchReverse, SeaGullGroup, Shellfish, ShootingStar, SimpleEffectObj, Sky, StarPiece, StarPieceGroup, SubmarineSteam, SurprisedGalaxy, SwingRope, TicoRail, TimerSwitch, Trapeze, TreasureBoxCracked, UFOBreakable, UFOSolid, Unizo, WarpPod, WaterLeakPipe, WaterPlant, WoodBox, YellowChip, Creeper } from "./Actors/MiscActor";
+import { AstroCore, AstroDome, AstroMapObj, CollapsePlane, DriftWood, OceanWaveFloater, PeachCastleGardenPlanet, RailMoveObj, RotateMoveObj, SideSpikeMoveStep, SimpleEnvironmentObj, SimpleMapObj, Tsukidashikun, UFOKinoko, UFOKinokoUnderConstruction } from './Actors/MapObj';
+import { Butler, Kinopio, KinopioAstro, Peach, Penguin, PenguinRacer, Rosetta, SignBoard, Tico, TicoAstro, TicoComet } from './Actors/NPC';
+import { createHazeCube, createSwitchCube, createSwitchCylinder, createSwitchSphere, createWaterAreaCube, createWaterAreaCylinder, createWaterAreaSphere, requestArchivesHazeCube, requestArchivesWaterArea } from './MiscMap';
+import { NameObj, GameBits } from './NameObj';
+import { OceanBowl } from "./Actors/OceanBowl";
+import { OceanSphere } from './Actors/OceanSphere';
+import { SwitchSynchronizer } from './Switch';
 
 export interface NameObjFactory {
     new(zoneAndLayer: ZoneAndLayer, sceneObjHolder: SceneObjHolder, infoIter: JMapInfoIter): NameObj;
@@ -22,12 +23,6 @@ export interface NameObjFactory {
 
 export type NameObjFactoryFunc = (zoneAndLayer: ZoneAndLayer, sceneObjHolder: SceneObjHolder, infoIter: JMapInfoIter) => NameObj;
 export type NameObjRequestArchivesFunc = (sceneObjHolder: SceneObjHolder, infoIter: JMapInfoIter) => void;
-
-export const enum GameBits {
-    SMG1 = 0b01,
-    SMG2 = 0b10,
-    Both = SMG1 | SMG2,
-}
 
 export interface NameObjFactoryTableEntry {
     objName: string;
@@ -109,6 +104,9 @@ const ActorTable: NameObjFactoryTableEntry[] = [
     _("Onimasu",                        OnimasuJump),
     _("Tsukidashikun",                  Tsukidashikun),
     _("Mogucchi",                       Mogucchi),
+    _("Unizo",                          Unizo),
+    _("UnizoLand",                      Unizo),
+    _("UnizoShoal",                     Unizo),
 
     // NPCs
     _("Butler",                         Butler),
@@ -144,6 +142,7 @@ const ActorTable: NameObjFactoryTableEntry[] = [
     _("CoconutTreeLeaf",                CoconutTreeLeafGroup),
     _("CoconutTree",                    CoconutTree),
     _("CollapsePlane",                  CollapsePlane),
+    _("Creeper",                        Creeper),
     _("CrystalCageS",                   CrystalCage),
     _("CrystalCageM",                   CrystalCage),
     _("CrystalCageL",                   CrystalCage),
@@ -166,6 +165,8 @@ const ActorTable: NameObjFactoryTableEntry[] = [
     _("Fountain",                       Fountain),
     _("FountainBig",                    FountainBig),
     _("GCaptureTarget",                 GCaptureTarget),
+    _("LavaGeyser",                     LavaGeyser),
+    _("LavaProminence",                 LavaProminence),
     _("OceanBowl",                      OceanBowl),
     _("OceanPierFloaterA",              OceanWaveFloater),
     _("OceanHexagonFloater",            OceanWaveFloater),
@@ -721,7 +722,7 @@ const ActorTable: NameObjFactoryTableEntry[] = [
     E("BloomCylinder",                createBloomCylinder),
     E("BloomSphere",                  createBloomSphere),
 
-    E("LensFlareArea",                createLensFlareArea,  requestLensFlareArchives),
+    E("LensFlareArea",                createLensFlareArea,  requestArchivesLensFlareArea),
 
     N("WaterArea"),
     N("SwitchArea"),
@@ -738,7 +739,7 @@ const ActorTable: NameObjFactoryTableEntry[] = [
     N("DeathArea"),
     N("SimpleBloomCube"),
     N("PostFogArea"),
-    N("HazeCube"),
+    E("HazeCube",                     createHazeCube, requestArchivesHazeCube),
     N("MessageArea"),
     N("MessageAreaCube"),
     N("MessageAreaCylinder"),
@@ -807,9 +808,11 @@ export function getNameObjFactoryTableEntry(objName: string, gameFlag: GameBits,
 const SpecialPlanetTable: NameObjFactoryTableEntry[] = [
     _("ChoConveyorPlanetB",            RailPlanetMap),
     _("ChoConveyorPlanetD",            RotateMoveObj),
+    _("DinoPackunBattlePlanet",        FurPlanetMap),
     _("FlagDiscPlanetD",               RotateMoveObj),
     _("HatchWaterPlanet",              HatchWaterPlanet),
     _("HeavensDoorInsidePlanet",       SimpleMapObj),
+    _("HoneyQueenPlanet",              FurPlanetMap),
     _("PeachCastleGardenPlanet",       PeachCastleGardenPlanet),
     _("TridentPlanet",                 AstroMapObj),
     _("Quicksand2DPlanet",             RailPlanetMap),

@@ -1,13 +1,13 @@
+
 import SimpleBar from 'simplebar';
-import { animateScrollTo } from 'animated-scroll-to';
-import { randInt, sample, shuffle } from './common/common';
+import { randInt } from './common/common';
 
 import './style.scss';
 import 'font-awesome/css/font-awesome.css';
 import 'simplebar/dist/simplebar.css';
 
 import temp from './common/temp';
-import { turnRandomVector } from '../SuperMarioGalaxy/ActorUtil';
+import { LocationBase } from '../AAA_NewUI/SceneBase2';
 
 const bgColors = [
   "#63E7C2",
@@ -46,12 +46,12 @@ export class NUI {
   private selectedRegion: string;
   private selectedLocation: string;
 
-  public loadLocation: (location: Location) => void;
+  public loadLocation: (location: LocationBase) => void;
 
   private regionOrder: string[];
-  private locations: Locations[];
-  private regionMap;
-  private locationMap;
+  private locations: LocationBase[];
+  private regionMap: any;
+  private locationMap: any;
 
   constructor() {
     this.node = document.createElement('div');
@@ -73,7 +73,7 @@ export class NUI {
     this.listScrollbar = new SimpleBar(this.listScroll, { autoHide: true });
   }
 
-  private click(e) {
+  private click(e: any) {
     if (e.target !== e.currentTarget) {
       if (e.target.classList.contains('region')) {
         const region = e.target.dataset.region;
@@ -157,7 +157,7 @@ export class NUI {
   }
 
   // TODO: some game meta for non-search results is vital
-  public setLocations(locations) {
+  public setLocations(locations: LocationBase[]) {
     this.regionOrder = [];
     this.locations = locations;
     this.regionMap = {};
@@ -168,7 +168,8 @@ export class NUI {
       // this.selectedRegion = locations[0].tag;
     }
 
-    locations.forEach((location) => {
+    locations.forEach((location_) => {
+      const location = location_ as any;
       if (!(location.tag in this.regionMap)) {
         this.regionOrder.push(location.tag);
         this.regionMap[location.tag] = [];
@@ -201,7 +202,7 @@ export class NUI {
     });
   
     this.regionsList.innerHTML = html.join('\n');
-    document.querySelector(`[data-region="${this.selectedRegion}"]`).classList.add('active');
+    document.querySelector(`[data-region="${this.selectedRegion}"]`)!.classList.add('active');
   }
 
 
@@ -229,8 +230,8 @@ export class NUI {
     // grouped, probably game specific and dependent on quantity of locs per scene
     // for now just put one loc per scene all under the region name, unless on all
 
-    let grouped = {};
-    let ungrouped = [];
+    let grouped: any = {};
+    let ungrouped: any = [];
 
     if(filter.region) {
       grouped[filter.region] = this.regionMap[filter.region]
@@ -245,10 +246,11 @@ export class NUI {
 
     // todo infer sub groupings or just assign under one
 
+    // @ts-ignore
     for (const [group, locs] of Object.entries(grouped)) {
       html.push(`<div class="row-title">${group}</div>`);
       html.push(`<div class="sw-location-row">`);
-      locs.forEach((location) => {
+      locs.forEach((location: any) => {
         n += 1;
         let bgColor = bgColors[n % bgColors.length];
         html.push(
@@ -265,7 +267,7 @@ export class NUI {
 
     if (ungrouped.length) {
       html.push(`<div class="sw-location-row">`);
-      ungrouped.forEach((location) => {
+      ungrouped.forEach((location: any) => {
         n += 1;
         let bgColor = bgColors[n % bgColors.length];
         html.push(
@@ -280,7 +282,7 @@ export class NUI {
       html.push('</div>');
     }
 
-    let locArea = document.querySelector('.sw-locations');
+    let locArea = document.querySelector('.sw-locations') as HTMLDivElement;
     locArea.innerHTML = html.join('\n');
     let singleRow = locArea.offsetHeight < 200;
 
@@ -289,8 +291,7 @@ export class NUI {
 
   }
 
-
-  private addRegions(regions) {
+  private addRegions(regions: string[]) {
     let html = [];
     for (let i = 0; i < regions.length; i++) {
       html.push(
@@ -380,7 +381,7 @@ export class NUI {
       }
       html.push("</div>");
     }
-    document.querySelector(".sw-locations").innerHTML = html.join("\n");
+    document.querySelector(".sw-locations")!.innerHTML = html.join("\n");
   }
 
   private debugAddLocations(levels: number, min: number, max: number) {
@@ -424,6 +425,6 @@ export class NUI {
       }
       html.push("</div>");
     }
-    document.querySelector(".sw-locations").innerHTML = html.join("\n");
+    document.querySelector(".sw-locations")!.innerHTML = html.join("\n");
   }
 }

@@ -42,12 +42,17 @@ interface GfxSamplerP_GL extends GfxSampler {
     gl_sampler: WebGLSampler;
 }
 
+const enum GfxProgramCompileStateP_GL {
+    NeedsCompile,
+    NeedsBind,
+    Ready,
+}
+
 interface GfxProgramP_GL extends GfxProgram {
-    gl_program: WebGLProgram | null;
+    gl_program: WebGLProgram;
     gl_shader_vert: WebGLShader | null;
     gl_shader_frag: WebGLShader | null;
-    compileDirty: boolean;
-    bindDirty: boolean;
+    compileState: GfxProgramCompileStateP_GL;
     descriptor: GfxProgramDescriptorSimple;
 }
 
@@ -329,12 +334,14 @@ class GfxRenderPassP_GL implements GfxRenderPass {
 }
 
 enum HostAccessPassCmd { uploadBufferData = 491, uploadTextureData, end };
+let g0 = 0;
 class GfxHostAccessPassP_GL implements GfxHostAccessPass {
     public u32: Growable<Uint32Array> = new Growable((n) => new Uint32Array(n));
     public gfxr: (GfxResource | null)[] = [];
     public bufr: ArrayBufferView[] = [];
 
-    public reset() { this.u32.r(); this.gfxr.length = 0; this.bufr.length = 0; }
+    public g0 = 0;
+    public reset() { this.g0 = ++g0; this.u32.r(); this.gfxr.length = 0; this.bufr.length = 0; }
 
     public pu32(c: number) { this.u32.n(c); }
     public pcmd(c: number) { this.pu32(c); }
@@ -342,16 +349,17 @@ class GfxHostAccessPassP_GL implements GfxHostAccessPass {
     public pbufr(r: ArrayBufferView) { this.bufr.push(r); }
 
     public end() { this.pcmd(HostAccessPassCmd.end); }
-    public uploadBufferData(r: GfxBuffer, dstWordOffset: number, data: Uint8Array, srcWordOffset?: number, wordCount?: number) {
+    public uploadBufferData(r: GfxBuffer, dstByteOffset: number, data: Uint8Array, srcByteOffset?: number, byteSize?: number) {
         assert(!!r);
         this.pcmd(HostAccessPassCmd.uploadBufferData); this.pgfxr(r);
-        const dstByteOffset = dstWordOffset * 4;
-        const srcByteOffset = (srcWordOffset !== undefined) ? (srcWordOffset * 4) : 0;
-        const byteCount = (wordCount !== undefined) ? (wordCount * 4) : (data.byteLength - srcByteOffset);
+        if (srcByteOffset === undefined)
+            srcByteOffset = 0;
+        if (byteSize === undefined)
+            byteSize = data.byteLength - srcByteOffset;
         this.pu32(dstByteOffset);
         this.pbufr(data);
         this.pu32(srcByteOffset);
-        this.pu32(byteCount);
+        this.pu32(byteSize);
     }
 
     public uploadTextureData(r: GfxTexture, firstMipLevel: number, levelDatas: ArrayBufferView[]) {
@@ -617,8 +625,8 @@ uniform sampler2D u_Texture;
 in vec2 v_TexCoord;
 
 void main() {
-    vec4 color = texture(SAMPLER_2D(u_Texture), v_TexCoord);
-    gl_FragColor = vec4(color.rgb, 1.0);
+    vec4 t_Color = texture(SAMPLER_2D(u_Texture), v_TexCoord);
+    gl_FragColor = vec4(t_Color.rgb, 1.0);
 }
 `;
 
@@ -798,6 +806,7 @@ void main() {
         case GfxFormat.U8_RGBA_RT:
             return WebGL2RenderingContext.RGBA8;
         case GfxFormat.U8_RGBA_SRGB:
+        case GfxFormat.U8_RGBA_RT_SRGB:
             return WebGL2RenderingContext.SRGB8_ALPHA8;
         case GfxFormat.S8_RGBA_NORM:
             return WebGL2RenderingContext.RGBA8_SNORM;
@@ -1097,12 +1106,12 @@ void main() {
     }
 
     private _createProgram(descriptor: GfxProgramDescriptorSimple): GfxProgramP_GL {
-        const gl_program: WebGLProgram | null = null;
+        const gl = this.gl;
+        const gl_program: WebGLProgram = this.ensureResourceExists(gl.createProgram());
         const gl_shader_vert: WebGLShader | null = null;
         const gl_shader_frag: WebGLShader | null = null;
-        const compileDirty = true;
-        const bindDirty = true;
-        const program: GfxProgramP_GL = { _T: _T.Program, ResourceUniqueId: this.getNextUniqueId(), descriptor, compileDirty, bindDirty, gl_program, gl_shader_vert, gl_shader_frag };
+        const compileState = GfxProgramCompileStateP_GL.NeedsCompile;
+        const program: GfxProgramP_GL = { _T: _T.Program, ResourceUniqueId: this.getNextUniqueId(), descriptor, compileState, gl_program, gl_shader_vert, gl_shader_frag };
         this._tryCompileProgram(program);
         return program;
     }
@@ -1445,6 +1454,9 @@ void main() {
         const pass = o as GfxRenderPassP_GL;
         return pass.descriptor;
     }
+    //#endregion
+
+    //#region Debugging
 
     public setResourceName(o: GfxResource, name: string): void {
         o.ResourceName = name;
@@ -1471,6 +1483,11 @@ void main() {
             this._resourceCreationTracker.setResourceLeakCheck(o, v);
     }
 
+    public checkForLeaks(): void {
+        if (this._resourceCreationTracker !== null)
+            this._resourceCreationTracker.checkForLeaks();
+    }
+
     public pushDebugGroup(debugGroup: GfxDebugGroup): void {
         this._debugGroupStack.push(debugGroup);
     }
@@ -1478,18 +1495,21 @@ void main() {
     public popDebugGroup(): void {
         this._debugGroupStack.pop();
     }
-    //#endregion
 
-    //#region Debugging
+    public programPatched(o: GfxProgram, descriptor: GfxProgramDescriptorSimple): void {
+        const program = o as GfxProgramP_GL;
+        const gl = this.gl;
+        gl.deleteProgram(program.gl_program);
+        program.descriptor = descriptor;
+        program.gl_program = this.ensureResourceExists(gl.createProgram());
+        program.compileState = GfxProgramCompileStateP_GL.NeedsCompile;
+        this._tryCompileProgram(program);
+    }
+
     public getBufferData(buffer: GfxBuffer, dstBuffer: ArrayBufferView, wordOffset: number = 0): void {
         const gl = this.gl;
         gl.bindBuffer(gl.COPY_READ_BUFFER, getPlatformBuffer(buffer, wordOffset * 4));
         gl.getBufferSubData(gl.COPY_READ_BUFFER, wordOffset * 4, dstBuffer);
-    }
-
-    public checkForLeaks(): void {
-        if (this._resourceCreationTracker !== null)
-            this._resourceCreationTracker.checkForLeaks();
     }
     //#endregion
 
@@ -1670,21 +1690,22 @@ void main() {
     }
 
     private _tryCompileProgram(program: GfxProgramP_GL): void {
-        assert(program.compileDirty);
+        assert(program.compileState === GfxProgramCompileStateP_GL.NeedsCompile);
 
         const descriptor = program.descriptor;
 
         const gl = this.gl;
+        if (program.gl_shader_vert !== null)
+            gl.deleteShader(program.gl_shader_vert);
+        if (program.gl_shader_frag !== null)
+            gl.deleteShader(program.gl_shader_frag);
         program.gl_shader_vert = this._compileShader(descriptor.preprocessedVert, gl.VERTEX_SHADER);
         program.gl_shader_frag = this._compileShader(descriptor.preprocessedFrag, gl.FRAGMENT_SHADER);
-        const prog = this.ensureResourceExists(gl.createProgram());
-        gl.attachShader(prog, program.gl_shader_vert);
-        gl.attachShader(prog, program.gl_shader_frag);
-        gl.linkProgram(prog);
-        program.gl_program = prog;
+        gl.attachShader(program.gl_program, program.gl_shader_vert);
+        gl.attachShader(program.gl_program, program.gl_shader_frag);
+        gl.linkProgram(program.gl_program);
 
-        program.compileDirty = false;
-        program.bindDirty = true;
+        program.compileState = GfxProgramCompileStateP_GL.NeedsBind;
     }
 
     private _bindFramebufferAttachment(binding: GLenum, attachment: GfxAttachmentP_GL | null): void {
@@ -1742,7 +1763,10 @@ void main() {
         if (!!(clearBits & WebGL2RenderingContext.COLOR_BUFFER_BIT)) {
             assert(this._currentColorAttachments.length > 0);
             gl.clearColor(clearColorR, clearColorG, clearColorB, clearColorA);
-            gl.colorMask(true, true, true, true);
+            if (this._currentMegaState.attachmentsState[0].colorWriteMask !== GfxColorWriteMask.ALL) {
+                gl.colorMask(true, true, true, true);
+                this._currentMegaState.attachmentsState[0].colorWriteMask = GfxColorWriteMask.ALL;
+            }
         }
         if (!!(clearBits & WebGL2RenderingContext.DEPTH_BUFFER_BIT)) {
             assert(this._currentDepthStencilAttachment !== null);
@@ -1839,19 +1863,10 @@ void main() {
         assert(this.queryPipelineReady(this._currentPipeline));
         this._setMegaState(this._currentPipeline.megaState);
 
-        // Hotpatch support.
-        // TODO(jstpierre): Make this a bit less hacky in the future.
         const program = this._currentPipeline.program;
-        if (program.descriptor.preprocessedVert === '') {
-            const descriptor = program.descriptor as GfxProgramDescriptor;
-            descriptor.ensurePreprocessed(this.queryVendorInfo());
-            program.compileDirty = true;
-            this._tryCompileProgram(program);
-        }
-
         this._useProgram(program);
 
-        if (program.bindDirty) {
+        if (program.compileState === GfxProgramCompileStateP_GL.NeedsBind) {
             const gl = this.gl, prog = program.gl_program!;
             const deviceProgram = program.descriptor;
 
@@ -1873,7 +1888,7 @@ void main() {
                 samplerIndex += arraySize;
             }
 
-            program.bindDirty = false;
+            program.compileState = GfxProgramCompileStateP_GL.Ready;
         }
     }
 

@@ -7,7 +7,7 @@ import { GfxBufferCoalescerCombo, GfxCoalescedBuffersCombo } from "../gfx/helper
 import { LoadedVertexData } from "../gx/gx_displaylist";
 import { GfxRenderInstManager, GfxRenderInst } from "../gfx/render/GfxRenderer";
 import { ViewerRenderInput, Texture } from "../viewer";
-import { vec3, mat4 } from "gl-matrix";
+import { vec3, mat4, ReadonlyVec3 } from "gl-matrix";
 import { computeModelMatrixSRT, lerp, saturate, MathConstants, computeModelMatrixSRT_MayaSSC, Vec3One, computeModelMatrixR, computeModelMatrixS } from "../MathHelpers";
 import { GXMaterialBuilder } from "../gx/GXMaterialBuilder";
 import * as GX from "../gx/gx_enum";
@@ -49,13 +49,14 @@ class HSD_DObj_Data {
     public shapeHelpers: GXShapeHelperGfx[] = [];
     public mobj: HSD_MObj_Data | null = null;
 
-    constructor(device: GfxDevice, cache: GfxRenderCache, coalescedBuffers: GfxCoalescedBuffersCombo[], public dobj: HSD_DObj) {
+    constructor(device: GfxDevice, cache: GfxRenderCache, coalescedBufferss: GfxCoalescedBuffersCombo[], public dobj: HSD_DObj) {
         if (this.dobj.mobj !== null)
             this.mobj = new HSD_MObj_Data(device, cache, this.dobj.mobj);
 
         for (let i = 0; i < this.dobj.pobj.length; i++) {
             const pobj = this.dobj.pobj[i];
-            this.shapeHelpers.push(new GXShapeHelperGfx(device, cache, coalescedBuffers.shift()!, pobj.loadedVertexLayout, pobj.loadedVertexData));
+            const coalescedBuffers = coalescedBufferss.shift()!;
+            this.shapeHelpers.push(new GXShapeHelperGfx(device, cache, coalescedBuffers.vertexBuffers, coalescedBuffers.indexBuffer, pobj.loadedVertexLayout, pobj.loadedVertexData));
         }
     }
 
@@ -1037,9 +1038,8 @@ class HSD_MObj_Instance {
         }
 
         this.materialHelper.setOnRenderInst(device, cache, renderInst);
-        const offs = this.materialHelper.allocateMaterialParams(renderInst);
         this.setupTExpConstants(materialParams);
-        this.materialHelper.fillMaterialParamsDataOnInst(renderInst, offs, materialParams);
+        this.materialHelper.allocateMaterialParamsDataOnInst(renderInst, materialParams);
         renderInst.setSamplerBindingsFromTextureMappings(materialParams.m_TextureMapping);
     }
 }
@@ -1176,7 +1176,7 @@ class HSD_DObj_Instance {
                 megaStateFlags.cullMode = GfxCullMode.FRONT_AND_BACK;
 
             shapeHelper.setOnRenderInst(renderInst);
-            shapeHelper.fillPacketParams(packetParams, renderInst);
+            this.mobj.materialHelper.allocatePacketParamsDataOnInst(renderInst, packetParams);
             renderInstManager.submitRenderInst(renderInst);
         }
 
@@ -1195,7 +1195,8 @@ class HSD_JObj_Instance {
     public scale = vec3.create();
     private parentScale = vec3.fromValues(1, 1, 1);
 
-    public visible: boolean = true;
+    public visible = true;
+    public nodeVisible = true;
 
     constructor(public data: HSD_JObj_Data, texImageDataCache: HSD__TexImageDataCache, public parent: HSD_JObj_Instance | null = null) {
         for (let i = 0; i < this.data.dobj.length; i++)
@@ -1207,15 +1208,11 @@ class HSD_JObj_Instance {
         vec3.copy(this.translation, jobj.translation);
         vec3.copy(this.rotation, jobj.rotation);
         vec3.copy(this.scale, jobj.scale);
-        this.visible = !(jobj.flags & HSD_JObjFlags.HIDDEN);
-    }
-
-    public setVisible(v: boolean): void {
-        this.visible = v;
+        this.nodeVisible = !(jobj.flags & HSD_JObjFlags.HIDDEN);
     }
 
     public setVisibleAll(v: boolean): void {
-        this.visible = v;
+        this.nodeVisible = v;
 
         for (let i = 0; i < this.children.length; i++)
             this.children[i].setVisibleAll(v);
@@ -1269,7 +1266,7 @@ class HSD_JObj_Instance {
         } else if (trackType === HSD_JObjAnmType.SCAZ) {
             jobj.scale[2] = value;
         } else if (trackType === HSD_JObjAnmType.NODE) {
-            jobj.setVisible(value >= 0.5);
+            jobj.nodeVisible = value >= 0.5;
         } else if (trackType === HSD_JObjAnmType.BRANCH) {
             jobj.setVisibleAll(value >= 0.5);
         } else {
@@ -1288,7 +1285,7 @@ class HSD_JObj_Instance {
             this.children[i].calcAnim(deltaTimeInFrames);
     }
 
-    public calcMtx(parentJointMtx: mat4 | null = null, parentScale: vec3 = Vec3One): void {
+    public calcMtx(parentJointMtx: mat4 | null = null, parentScale: ReadonlyVec3 = Vec3One): void {
         const useClassicScale = !!(this.data.jobj.flags & HSD_JObjFlags.CLASSICAL_SCALE);
 
         if (useClassicScale)
@@ -1313,9 +1310,13 @@ class HSD_JObj_Instance {
     }
 
     public draw(device: GfxDevice, renderInstManager: GfxRenderInstManager, viewerInput: ViewerRenderInput, root: HSD_JObjRoot_Instance): void {
-        if (this.visible)
+        if (!this.visible)
+            return;
+
+        if (this.nodeVisible)
             for (let i = 0; i < this.dobj.length; i++)
                 this.dobj[i].draw(device, renderInstManager, viewerInput, this, root);
+
         for (let i = 0; i < this.children.length; i++)
             this.children[i].draw(device, renderInstManager, viewerInput, root);
     }
@@ -1375,9 +1376,9 @@ export class HSD_JObjRoot_Instance {
         vec3.transformMat4(scratchVec3b, [0, 0, 0], jobj.jointMtx);
 
         if (highlight) {
-            drawWorldSpacePoint(ctx, camera, scratchVec3b, Red, 6);
+            drawWorldSpacePoint(ctx, camera.clipFromWorldMatrix, scratchVec3b, Red, 6);
             if (idx < 10)
-                drawWorldSpaceText(ctx, camera, scratchVec3b, '' + idx);
+                drawWorldSpaceText(ctx, camera.clipFromWorldMatrix, scratchVec3b, '' + idx);
         }
 
         if (jobj.parent !== null) {
@@ -1385,7 +1386,7 @@ export class HSD_JObjRoot_Instance {
             const color = colorNewCopy(Red);
             if (highlight)
                 colorCopy(color, Yellow);
-            drawWorldSpaceLine(ctx, camera, scratchVec3a, scratchVec3b, color);
+            drawWorldSpaceLine(ctx, camera.clipFromWorldMatrix, scratchVec3a, scratchVec3b, color);
         }
 
         for (let i = 0; i < jobj.children.length; i++)

@@ -292,9 +292,6 @@ export class Viewer {
                 this.oncamerachanged(result === CameraUpdateResult.ImportantChange);
         }
 
-        // TODO(jstpierre): Move this to main
-        this.inputManager.afterFrame();
-
         const deltaTime = dt * this.sceneTimeScale;
         this.viewerRenderInput.deltaTime += deltaTime;
         this.sceneTime += deltaTime;
@@ -305,6 +302,9 @@ export class Viewer {
         } else {
             this.render();
         }
+
+        // TODO(jstpierre): Move this to main
+        this.inputManager.afterFrame();
 
         // Reset the delta for next frame.
         this.viewerRenderInput.deltaTime = 0;

@@ -8,12 +8,12 @@ import * as GX_Material from './gx_material';
 import * as GX_Texture from './gx_texture';
 import * as Viewer from '../viewer';
 
-import { assert, nArray } from '../util';
-import { LoadedVertexData, LoadedVertexPacket, LoadedVertexLayout, VertexAttributeInput } from './gx_displaylist';
+import { assert, nArray, assertExists } from '../util';
+import { LoadedVertexData, LoadedVertexDraw, LoadedVertexLayout, VertexAttributeInput } from './gx_displaylist';
 import ArrayBufferSlice from '../ArrayBufferSlice';
 import { TextureMapping, TextureHolder, LoadedTexture } from '../TextureHolder';
 
-import { GfxBufferCoalescerCombo, makeStaticDataBuffer, GfxCoalescedBuffersCombo } from '../gfx/helpers/BufferHelpers';
+import { GfxBufferCoalescerCombo, makeStaticDataBuffer } from '../gfx/helpers/BufferHelpers';
 import { fillColor, fillMatrix4x3, fillVec4, fillMatrix4x4, fillVec3v, fillMatrix4x2 } from '../gfx/helpers/UniformBufferHelpers';
 import { GfxFormat, GfxDevice, GfxWrapMode, GfxTexFilterMode, GfxMipFilterMode, GfxBindingLayoutDescriptor, GfxVertexBufferDescriptor, GfxBufferUsage, GfxVertexAttributeDescriptor, GfxBuffer, GfxInputLayout, GfxInputState, GfxMegaStateDescriptor, GfxProgram, GfxVertexBufferFrequency, GfxHostAccessPass, GfxRenderPass, GfxIndexBufferDescriptor, GfxInputLayoutBufferDescriptor, makeTextureDescriptor2D, GfxColorWriteMask } from '../gfx/platform/GfxPlatform';
 import { standardFullClearRenderPassDescriptor, BasicRenderTarget } from '../gfx/helpers/RenderTargetHelpers';
@@ -61,13 +61,7 @@ export class PacketParams {
     }
 }
 
-export const ub_SceneParams = 0;
-export const ub_MaterialParams = 1;
-export const ub_PacketParams = 2;
-
 export const ub_SceneParamsBufferSize = 4*4 + 4;
-export const ub_MaterialParamsBufferSize = 4*2 + 4*2 + 4*4 + 4*4 + 4*3*10 + 4*8 + 4*2*3 + 4*3*20 + 4*5*8;
-export const ub_PacketParamsBufferSize = 4*3*10;
 
 export function fillSceneParamsData(d: Float32Array, bOffs: number, sceneParams: SceneParams): void {
     let offs = bOffs;
@@ -125,13 +119,15 @@ function fillMaterialParamsDataWithOptimizations(material: GX_Material.GXMateria
     assert(d.length >= offs);
 }
 
-export function fillPacketParamsData(d: Float32Array, bOffs: number, packetParams: PacketParams): void {
+function fillPacketParamsDataWithOptimizations(material: GX_Material.GXMaterial, d: Float32Array, bOffs: number, packetParams: PacketParams): void {
     let offs = bOffs;
 
-    for (let i = 0; i < 10; i++)
-        offs += fillMatrix4x3(d, offs, packetParams.u_PosMtx[i]);
+    if (GX_Material.materialUsePnMtxIdx(material))
+        for (let i = 0; i < 10; i++)
+            offs += fillMatrix4x3(d, offs, packetParams.u_PosMtx[i]);
+    else
+        offs += fillMatrix4x3(d, offs, packetParams.u_PosMtx[0]);
 
-    assert(offs === bOffs + ub_PacketParamsBufferSize);
     assert(d.length >= offs);
 }
 
@@ -328,6 +324,7 @@ export class GXMaterialHelperGfx {
     public programKey: number;
     public megaStateFlags: Partial<GfxMegaStateDescriptor>;
     public materialParamsBufferSize: number;
+    public packetParamsBufferSize: number;
     private materialHacks: GX_Material.GXMaterialHacks = {};
     private program!: GX_Material.GX_Program;
     private gfxProgram: GfxProgram | null = null;
@@ -337,6 +334,7 @@ export class GXMaterialHelperGfx {
             Object.assign(this.materialHacks, materialHacks);
 
         this.calcMaterialParamsBufferSize();
+        this.calcPacketParamsBufferSize();
         this.createProgram();
 
         this.megaStateFlags = {};
@@ -345,6 +343,10 @@ export class GXMaterialHelperGfx {
 
     public calcMaterialParamsBufferSize(): void {
         this.materialParamsBufferSize = GX_Material.getMaterialParamsBlockSize(this.material);
+    }
+
+    public calcPacketParamsBufferSize(): void {
+        this.packetParamsBufferSize = GX_Material.getPacketParamsBlockSize(this.material);
     }
 
     public cacheProgram(device: GfxDevice, cache: GfxRenderCache): void {
@@ -364,24 +366,27 @@ export class GXMaterialHelperGfx {
         this.createProgram();
     }
 
-    public fillMaterialParamsDataOnInst(renderInst: GfxRenderInst, offs: number, materialParams: MaterialParams): void {
-        const d = renderInst.mapUniformBufferF32(ub_MaterialParams);
-        fillMaterialParamsDataWithOptimizations(this.material, d, offs, materialParams);
-    }
-
     public fillMaterialParamsData(renderInstManager: GfxRenderInstManager, offs: number, materialParams: MaterialParams): void {
         const uniformBuffer = renderInstManager.getTemplateRenderInst().getUniformBuffer();
         const d = uniformBuffer.mapBufferF32(offs, this.materialParamsBufferSize);
         fillMaterialParamsDataWithOptimizations(this.material, d, offs, materialParams);
     }
 
-    public allocateMaterialParams(renderInst: GfxRenderInst): number {
-        return renderInst.allocateUniformBuffer(ub_MaterialParams, this.materialParamsBufferSize);
-    }
-
     public allocateMaterialParamsBlock(renderInstManager: GfxRenderInstManager): number {
         const uniformBuffer = renderInstManager.getTemplateRenderInst().getUniformBuffer();
         return uniformBuffer.allocateChunk(this.materialParamsBufferSize);
+    }
+
+    public allocateMaterialParamsDataOnInst(renderInst: GfxRenderInst, materialParams: MaterialParams): void {
+        const offs = renderInst.allocateUniformBuffer(GX_Material.GX_Program.ub_MaterialParams, this.materialParamsBufferSize);
+        const d = renderInst.mapUniformBufferF32(GX_Material.GX_Program.ub_MaterialParams);
+        fillMaterialParamsDataWithOptimizations(this.material, d, offs, materialParams);
+    }
+
+    public allocatePacketParamsDataOnInst(renderInst: GfxRenderInst, packetParams: PacketParams): void {
+        const offs = renderInst.allocateUniformBuffer(GX_Material.GX_Program.ub_PacketParams, this.packetParamsBufferSize);
+        const d = renderInst.mapUniformBufferF32(GX_Material.GX_Program.ub_PacketParams);
+        fillPacketParamsDataWithOptimizations(this.material, d, offs, packetParams);
     }
 
     public setOnRenderInst(device: GfxDevice, cache: GfxRenderCache, renderInst: GfxRenderInst): void {
@@ -450,7 +455,7 @@ export class GXShapeHelperGfx {
     public inputLayout: GfxInputLayout;
     private zeroBuffer: GfxBuffer | null = null;
 
-    constructor(device: GfxDevice, cache: GfxRenderCache, coalescedBuffers: GfxCoalescedBuffersCombo, public loadedVertexLayout: LoadedVertexLayout, public loadedVertexData: LoadedVertexData) {
+    constructor(device: GfxDevice, cache: GfxRenderCache, public vertexBuffers: GfxVertexBufferDescriptor[], public indexBuffer: GfxIndexBufferDescriptor, public loadedVertexLayout: LoadedVertexLayout, public loadedVertexData: LoadedVertexData | null = null) {
         let usesZeroBuffer = false;
         for (let attrInput: VertexAttributeInput = 0; attrInput < VertexAttributeInput.COUNT; attrInput++) {
             const attrib = loadedVertexLayout.singleVertexInputLayouts.find((attrib) => attrib.attrInput === attrInput);
@@ -460,13 +465,7 @@ export class GXShapeHelperGfx {
             }
         }
 
-        const buffers: GfxVertexBufferDescriptor[] = [];
-        for (let i = 0; i < loadedVertexData.vertexBuffers.length; i++) {
-            buffers.push({
-                buffer: coalescedBuffers.vertexBuffers[i].buffer,
-                byteOffset: coalescedBuffers.vertexBuffers[i].wordOffset * 4,
-            });
-        }
+        const buffers: GfxVertexBufferDescriptor[] = vertexBuffers.slice();
 
         if (usesZeroBuffer) {
             // TODO(jstpierre): Move this to a global somewhere?
@@ -478,27 +477,20 @@ export class GXShapeHelperGfx {
         }
 
         this.inputLayout = createInputLayout(device, cache, loadedVertexLayout);
-
-        const indexBuffer: GfxIndexBufferDescriptor = {
-            buffer: coalescedBuffers.indexBuffer.buffer,
-            byteOffset: coalescedBuffers.indexBuffer.wordOffset * 4,
-        };
         this.inputState = device.createInputState(this.inputLayout, buffers, indexBuffer);
     }
 
-    public setOnRenderInst(renderInst: GfxRenderInst, packet: LoadedVertexPacket | null = null): void {
-        renderInst.allocateUniformBuffer(ub_PacketParams, ub_PacketParamsBufferSize);
+    public setOnRenderInst(renderInst: GfxRenderInst, packet: LoadedVertexDraw | null = null): void {
         renderInst.setInputLayoutAndState(this.inputLayout, this.inputState);
-        if (packet !== null)
-            renderInst.drawIndexes(packet.indexCount, packet.indexOffset);
-        else
-            renderInst.drawIndexes(this.loadedVertexData.totalIndexCount);
-    }
 
-    public fillPacketParams(packetParams: PacketParams, renderInst: GfxRenderInst): void {
-        let offs = renderInst.getUniformBufferOffset(ub_PacketParams);
-        const d = renderInst.mapUniformBufferF32(ub_PacketParams);
-        fillPacketParamsData(d, offs, packetParams);
+        if (packet === null) {
+            // Legacy API -- render a single packet.
+            const loadedVertexData = assertExists(this.loadedVertexData);
+            assert(loadedVertexData.draws.length === 1);
+            packet = loadedVertexData.draws[0];
+        }
+
+        renderInst.drawIndexes(packet.indexCount, packet.indexOffset);
     }
 
     public destroy(device: GfxDevice): void {
@@ -515,8 +507,8 @@ export const gxBindingLayouts: GfxBindingLayoutDescriptor[] = [
 const sceneParams = new SceneParams();
 export function fillSceneParamsDataOnTemplate(renderInst: GfxRenderInst, viewerInput: Viewer.ViewerRenderInput, customLODBias: number | null = null, sceneParamsScratch = sceneParams): void {
     fillSceneParams(sceneParamsScratch, viewerInput.camera.projectionMatrix, viewerInput.backbufferWidth, viewerInput.backbufferHeight, customLODBias);
-    let offs = renderInst.getUniformBufferOffset(ub_SceneParams);
-    const d = renderInst.mapUniformBufferF32(ub_SceneParams);
+    let offs = renderInst.getUniformBufferOffset(GX_Material.GX_Program.ub_SceneParams);
+    const d = renderInst.mapUniformBufferF32(GX_Material.GX_Program.ub_SceneParams);
     fillSceneParamsData(d, offs, sceneParams);
 }
 
@@ -524,7 +516,7 @@ export class GXRenderHelperGfx extends GfxRenderHelper {
     public pushTemplateRenderInst(): GfxRenderInst {
         const template = super.pushTemplateRenderInst();
         template.setBindingLayouts(gxBindingLayouts);
-        template.allocateUniformBuffer(ub_SceneParams, ub_SceneParamsBufferSize);
+        template.allocateUniformBuffer(GX_Material.GX_Program.ub_SceneParams, ub_SceneParamsBufferSize);
         return template;
     }
 }

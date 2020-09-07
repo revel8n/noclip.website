@@ -1,7 +1,7 @@
 
 import CodeEditor from "./CodeEditor";
 import { assertExists } from "./util";
-import { GfxVendorInfo } from "./gfx/platform/GfxPlatform";
+import { GfxVendorInfo, GfxProgramDescriptorSimple, GfxProgram, GfxDevice } from "./gfx/platform/GfxPlatform";
 import { preprocessShader_GLSL } from "./gfx/shaderc/GfxShaderCompiler";
 
 type DefineMap = Map<string, string>;
@@ -42,11 +42,17 @@ export class DeviceProgram {
     public frag: string = '';
     public defines = new Map<string, string>();
 
+    public definesChanged(): void {
+        this.preprocessedVert = '';
+        this.preprocessedFrag = '';
+    }
+
     public setDefineBool(name: string, v: boolean): void {
         if (v)
             this.defines.set(name, '1');
         else
             this.defines.delete(name);
+        this.definesChanged();
     }
 
     public ensurePreprocessed(vendorInfo: GfxVendorInfo): void {
@@ -54,6 +60,13 @@ export class DeviceProgram {
             this.preprocessedVert = preprocessShader_GLSL(vendorInfo, 'vert', this.both + this.vert, this.defines);
             this.preprocessedFrag = preprocessShader_GLSL(vendorInfo, 'frag', this.both + this.frag, this.defines);
         }
+    }
+
+    private _gfxDevice: GfxDevice | null = null;
+    private _gfxProgram: GfxProgram | null = null;
+    public associate(device: GfxDevice, program: GfxProgram): void {
+        this._gfxDevice = device;
+        this._gfxProgram = program;
     }
 
     private _editShader(n: 'vert' | 'frag' | 'both') {
@@ -72,7 +85,12 @@ export class DeviceProgram {
             const tryCompile = () => {
                 timeout = 0;
                 this[n] = editor.getValue();
-                this.preprocessedVert = '';
+
+                if (this._gfxDevice !== null && this._gfxProgram !== null) {
+                    this.preprocessedVert = '';
+                    this.ensurePreprocessed(this._gfxDevice.queryVendorInfo());
+                    this._gfxDevice.programPatched(this._gfxProgram, this);
+                }
             };
 
             editor.onvaluechanged = function(immediate: boolean) {

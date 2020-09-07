@@ -1,5 +1,5 @@
 
-import { GfxSamplerBinding, GfxBufferBinding, GfxBindingsDescriptor, GfxRenderPipelineDescriptor, GfxBindingLayoutDescriptor, GfxInputLayoutDescriptor, GfxVertexAttributeDescriptor, GfxProgram, GfxMegaStateDescriptor, GfxAttachmentState, GfxChannelBlendState, GfxSamplerDescriptor, GfxInputLayoutBufferDescriptor, GfxColor } from './GfxPlatform';
+import { GfxSamplerBinding, GfxBufferBinding, GfxBindingsDescriptor, GfxRenderPipelineDescriptor, GfxBindingLayoutDescriptor, GfxInputLayoutDescriptor, GfxVertexAttributeDescriptor, GfxProgram, GfxMegaStateDescriptor, GfxAttachmentState, GfxChannelBlendState, GfxSamplerDescriptor, GfxInputLayoutBufferDescriptor, GfxColor, GfxVertexBufferDescriptor, GfxIndexBufferDescriptor } from './GfxPlatform';
 import { copyMegaState } from '../helpers/GfxMegaStateDescriptorHelpers';
 
 type EqualFunc<K> = (a: K, b: K) => boolean;
@@ -24,7 +24,8 @@ function arrayEqual<T>(a: T[], b: T[], e: EqualFunc<T>): boolean {
 export function gfxSamplerBindingCopy(a: GfxSamplerBinding): GfxSamplerBinding {
     const gfxSampler = a.gfxSampler;
     const gfxTexture = a.gfxTexture;
-    return { gfxSampler, gfxTexture };
+    const lateBinding = a.lateBinding;
+    return { gfxSampler, gfxTexture, lateBinding };
 }
 
 export function gfxBufferBindingCopy(a: GfxBufferBinding): GfxBufferBinding {
@@ -55,6 +56,31 @@ export function gfxRenderPipelineDescriptorCopy(a: GfxRenderPipelineDescriptor):
     const megaStateDescriptor = copyMegaState(a.megaStateDescriptor);
     const sampleCount = a.sampleCount;
     return { bindingLayouts, inputLayout, megaStateDescriptor, program, topology, sampleCount };
+}
+
+export function gfxVertexAttributeDescriptorCopy(a: GfxVertexAttributeDescriptor): GfxVertexAttributeDescriptor {
+    const location = a.location;
+    const format = a.format;
+    const bufferIndex = a.bufferIndex;
+    const bufferByteOffset = a.bufferByteOffset;
+    return { location, format, bufferIndex, bufferByteOffset };
+}
+
+export function gfxInputLayoutBufferDescriptorCopy(a: GfxInputLayoutBufferDescriptor | null): GfxInputLayoutBufferDescriptor | null {
+    if (a !== null) {
+        const byteStride = a.byteStride;
+        const frequency = a.frequency;
+        return { byteStride, frequency };
+    } else {
+        return null;
+    }
+}
+
+export function gfxInputLayoutDescriptorCopy(a: GfxInputLayoutDescriptor): GfxInputLayoutDescriptor {
+    const vertexAttributeDescriptors = arrayCopy(a.vertexAttributeDescriptors, gfxVertexAttributeDescriptorCopy);
+    const vertexBufferDescriptors = arrayCopy(a.vertexBufferDescriptors, gfxInputLayoutBufferDescriptorCopy);
+    const indexBufferFormat = a.indexBufferFormat;
+    return { vertexAttributeDescriptors, vertexBufferDescriptors, indexBufferFormat };
 }
 
 function gfxBufferBindingEquals(a: GfxBufferBinding, b: GfxBufferBinding): boolean {

@@ -1,6 +1,6 @@
 // forgive me for my sins
 
-let temp = `<div class="placeholder active"></div>
+const temp = `<div class="placeholder active"></div>
 
 <div class="sw-menu expanded scrollable">
 <div class="sw-title-bar left-title">

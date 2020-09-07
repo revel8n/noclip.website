@@ -1,5 +1,5 @@
 
-import { vec3, mat4 } from "gl-matrix";
+import { vec3, mat4, ReadonlyVec3 } from "gl-matrix";
 import { nArray } from "./util";
 import { transformVec3Mat4w1 } from "./MathHelpers";
 
@@ -44,12 +44,12 @@ const scratchVec3c = vec3.create();
 const scratchVec3d = vec3.create();
 export class AABB {
     constructor(
-        public minX: number = 0,
-        public minY: number = 0,
-        public minZ: number = 0,
-        public maxX: number = 0,
-        public maxY: number = 0,
-        public maxZ: number = 0,
+        public minX: number = Infinity,
+        public minY: number = Infinity,
+        public minZ: number = Infinity,
+        public maxX: number = -Infinity,
+        public maxY: number = -Infinity,
+        public maxZ: number = -Infinity,
     ) {}
 
     public transform(src: AABB, m: mat4): void {
@@ -87,13 +87,13 @@ export class AABB {
     public set(minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number): void {
         this.minX = minX;
         this.minY = minY;
-        this.minX = minZ;
+        this.minZ = minZ;
         this.maxX = maxX;
         this.maxY = maxY;
-        this.maxX = maxZ;
+        this.maxZ = maxZ;
     }
 
-    public setInf(): void {
+    public reset(): void {
         this.set(Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity);
     }
 
@@ -121,13 +121,40 @@ export class AABB {
         this.maxZ = Math.max(a.maxZ, b.maxZ);
     }
 
-    public unionPoint(v: vec3): void {
-        this.minX = Math.min(this.minX, v[0]);
-        this.minY = Math.min(this.minY, v[1]);
-        this.minZ = Math.min(this.minZ, v[2]);
-        this.maxX = Math.max(this.maxX, v[0]);
-        this.maxY = Math.max(this.maxY, v[1]);
-        this.maxZ = Math.max(this.maxZ, v[2]);
+    public unionPoint(v: ReadonlyVec3): boolean {
+        let changed = false;
+
+        if (v[0] < this.minX) {
+            this.minX = v[0];
+            changed = true;
+        }
+
+        if (v[1] < this.minY) {
+            this.minY = v[1];
+            changed = true;
+        }
+
+        if (v[2] < this.minZ) {
+            this.minZ = v[2];
+            changed = true;
+        }
+
+        if (v[0] > this.maxX) {
+            this.maxX = v[0];
+            changed = true;
+        }
+
+        if (v[1] > this.maxY) {
+            this.maxY = v[1];
+            changed = true;
+        }
+
+        if (v[2] > this.maxZ) {
+            this.maxZ = v[2];
+            changed = true;
+        }
+
+        return changed;
     }
 
     public static intersect(a: AABB, b: AABB): boolean {
@@ -137,7 +164,7 @@ export class AABB {
             a.minZ > b.maxZ || b.minZ > a.maxZ);
     }
 
-    public containsPoint(v: vec3): boolean {
+    public containsPoint(v: ReadonlyVec3): boolean {
         const pX = v[0], pY = v[1], pZ = v[2];
         return !(
             pX < this.minX || pX > this.maxX ||
@@ -145,7 +172,7 @@ export class AABB {
             pZ < this.minZ || pZ > this.maxZ);
     }
 
-    public containsSphere(v: vec3, rad: number): boolean {
+    public containsSphere(v: ReadonlyVec3, rad: number): boolean {
         const pX = v[0], pY = v[1], pZ = v[2];
         return !(
             pX < this.minX - rad || pX > this.maxX + rad ||
@@ -154,9 +181,16 @@ export class AABB {
     }
 
     public extents(v: vec3): void {
-        v[0] = (this.maxX - this.minX) / 2;
-        v[1] = (this.maxY - this.minY) / 2;
-        v[2] = (this.maxZ - this.minZ) / 2;
+        v[0] = Math.max((this.maxX - this.minX) / 2, 0);
+        v[1] = Math.max((this.maxY - this.minY) / 2, 0);
+        v[2] = Math.max((this.maxZ - this.minZ) / 2, 0);
+    }
+
+    public diagonalLengthSquared(): number {
+        const dx = this.maxX - this.minX;
+        const dy = this.maxY - this.minY;
+        const dz = this.maxZ - this.minZ;
+        return dx*dx + dy*dy + dz*dz;
     }
 
     public centerPoint(v: vec3): void {
@@ -190,6 +224,13 @@ export class AABB {
         const extZ = (this.maxZ - this.minZ);
         const chord = Math.hypot(extX, extY, extZ);
         return chord / 2;
+    }
+
+    public maxCornerRadius(): number {
+        const x = Math.max(this.maxX, -this.minX);
+        const y = Math.max(this.maxY, -this.minY);
+        const z = Math.max(this.maxZ, -this.minZ);
+        return Math.sqrt(x*x + y*y + z*z);
     }
 
     public isEmpty(): boolean {
@@ -278,6 +319,10 @@ export class Frustum {
         if (this.visualizer === null)
             this.visualizer = new FrustumVisualizer();
         return this.visualizer;
+    }
+
+    public copyViewFrustum(other: Frustum): void {
+        this.setViewFrustum(other.left, other.right, other.bottom, other.top, -other.near, -other.far, other.isOrthographic);
     }
 
     public setViewFrustum(left: number, right: number, bottom: number, top: number, n: number, f: number, isOrthographic: boolean): void {

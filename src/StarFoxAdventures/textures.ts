@@ -20,7 +20,7 @@ export interface SFATextureArray {
 }
 
 export abstract class TextureFetcher {
-    public abstract async loadSubdir(subdir: string, dataFetcher: DataFetcher): Promise<void>;
+    public abstract async loadSubdirs(subdirs: string[], dataFetcher: DataFetcher): Promise<void>;
     public abstract getTextureArray(device: GfxDevice, num: number, alwaysUseTex1: boolean): SFATextureArray | null;
     public getTexture(device: GfxDevice, num: number, alwaysUseTex1: boolean) : SFATexture | null {
         const texArray = this.getTextureArray(device, num, alwaysUseTex1);
@@ -125,7 +125,10 @@ function loadTextureArrayFromTable(device: GfxDevice, tab: DataView, bin: ArrayB
 }
 
 function makeFakeTexture(device: GfxDevice, num: number): SFATextureArray {
-    const gfxTexture = device.createTexture(makeTextureDescriptor2D(GfxFormat.U8_RGBA_NORM, 2, 2, 1));
+    const DIM = 128;
+    const CHECKER = 32;
+
+    const gfxTexture = device.createTexture(makeTextureDescriptor2D(GfxFormat.U8_RGBA_NORM, DIM, DIM, 1));
     const gfxSampler = device.createSampler({
         wrapS: GfxWrapMode.REPEAT,
         wrapT: GfxWrapMode.REPEAT,
@@ -137,23 +140,32 @@ function makeFakeTexture(device: GfxDevice, num: number): SFATextureArray {
     });
 
     // Thanks, StackOverflow.
-    let seed = num;
-    console.log(`Creating fake texture from seed ${seed}`);
-    function random() {
-        let x = Math.sin(seed++) * 10000;
-        return x - Math.floor(x);
-    }
+    // let seed = num;
+    // console.log(`Creating fake texture from seed ${seed}`);
+    // function random() {
+    //     let x = Math.sin(seed++) * 10000;
+    //     return x - Math.floor(x);
+    // }
 
-    const baseColor = [127 + random() * 127, 127 + random() * 127, 127 + random() * 127];
-    const darkBase = [baseColor[0] * 0.7, baseColor[1] * 0.7, baseColor[2] * 0.7];
+    const baseColor = [255, 255, 255];
+    //const baseColor = [127 + random() * 127, 127 + random() * 127, 127 + random() * 127];
+    const darkBase = [baseColor[0] * 0.9, baseColor[1] * 0.9, baseColor[2] * 0.9];
     const light = [baseColor[0], baseColor[1], baseColor[2], 0xff];
     const dark = [darkBase[0], darkBase[1], darkBase[2], 0xff];
 
-    const pixels = new Uint8Array(4 * 4);
-    pixels.set(dark, 0);
-    pixels.set(light, 4);
-    pixels.set(light, 8);
-    pixels.set(dark, 12);
+    // Draw checkerboard
+    const pixels = new Uint8Array(DIM * DIM * 4);
+    for (let y = 0; y < DIM; y++) {
+        for (let x = 0; x < DIM; x++) {
+            const cx = (x / CHECKER)|0;
+            const cy = (y / CHECKER)|0;
+            let color = !!(cx & 1);
+            if (cy & 1)
+                color = !color;
+            const pixel = color ? light : dark;
+            pixels.set(pixel, (y * DIM + x) * 4);
+        }
+    }
 
     const hostAccessPass = device.createHostAccessPass();
     hostAccessPass.uploadTextureData(gfxTexture, 0, [pixels]);
@@ -223,7 +235,7 @@ export class FakeTextureFetcher extends TextureFetcher {
         return this.textures[num];
     }
 
-    public async loadSubdir(subdir: string) {
+    public async loadSubdirs(subdirs: string[]) {
     }
 }
 
@@ -261,7 +273,7 @@ export class SFATextureFetcher extends TextureFetcher {
         return self;
     }
 
-    public async loadSubdir(subdir: string, dataFetcher: DataFetcher) {
+    private async loadSubdir(subdir: string, dataFetcher: DataFetcher) {
         if (this.subdirTextureFiles[subdir] === undefined) {
             const pathBase = this.gameInfo.pathBase;
             const [tex0, tex1] = await Promise.all([
@@ -289,6 +301,15 @@ export class SFATextureFetcher extends TextureFetcher {
                 await this.loadSubdir('swaphol', dataFetcher);
             }
         }
+    }
+
+    public async loadSubdirs(subdirs: string[], dataFetcher: DataFetcher) {
+        const promises = [];
+        for (let subdir of subdirs) {
+            promises.push(this.loadSubdir(subdir, dataFetcher));
+        }
+        
+        await Promise.all(promises);
     }
 
     public getTextureArray(device: GfxDevice, texId: number, useTex1: boolean): SFATextureArray | null {

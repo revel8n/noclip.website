@@ -4,14 +4,15 @@ import * as RARC from '../Common/JSYSTEM/JKRArchive';
 
 import { WindWakerRenderer, ZWWExtraTextures, dGlobals } from "./zww_scenes";
 import { mat4, vec3 } from "gl-matrix";
-import { J3DModelInstanceSimple, J3DModelData } from '../Common/JSYSTEM/J3D/J3DGraphBase';
+import { J3DModelData } from '../Common/JSYSTEM/J3D/J3DGraphBase';
+import { J3DModelInstanceSimple } from '../Common/JSYSTEM/J3D/J3DGraphSimple';
 import { GfxRendererLayer } from '../gfx/render/GfxRenderer';
 import { LoopMode, ANK1, TTK1, TRK1, TPT1 } from '../Common/JSYSTEM/J3D/J3DLoader';
 import { assertExists, hexzero, leftPad } from '../util';
 import { ResType, ResEntry, ResAssetType } from './d_resorce';
 import AnimationController from '../AnimationController';
 import { AABB } from '../Geometry';
-import { computeModelMatrixSRT } from '../MathHelpers';
+import { computeModelMatrixSRT, scaleMatrix } from '../MathHelpers';
 import { LightType, dKy_tevstr_init, dKy_tevstr_c, settingTevStruct, setLightTevColorType } from './d_kankyo';
 import { JPABaseEmitter } from '../Common/JSYSTEM/JPA';
 import { fpc__ProcessName, fopAcM_prm_class, fopAc_ac_c, cPhs__Status, fGlobals, fpcPf__RegisterFallback } from './framework';
@@ -19,7 +20,6 @@ import { ScreenSpaceProjection, computeScreenSpaceProjectionFromWorldSpaceAABB }
 import { GfxDevice } from '../gfx/platform/GfxPlatform';
 import { GfxRenderInstManager } from '../gfx/render/GfxRenderer';
 import { cBgS_GndChk } from './d_bg';
-import { initModelForZelda } from './d_a';
 
 const scratchMat4a = mat4.create();
 const scratchVec3a = vec3.create();
@@ -101,7 +101,6 @@ function spawnLegacyActor(globals: dGlobals, legacy: d_a_noclip_legacy, actor: f
 
     function buildChildModelRes(model: J3DModelData): BMDObjectRenderer {
         const modelInstance = new J3DModelInstanceSimple(model);
-        initModelForZelda(modelInstance);
         renderer.extraTextures.fillExtraTextures(modelInstance);
         modelInstance.name = actorName!;
         modelInstance.setSortKeyLayer(GfxRendererLayer.OPAQUE + 1);
@@ -146,8 +145,8 @@ function spawnLegacyActor(globals: dGlobals, legacy: d_a_noclip_legacy, actor: f
         mat4.getTranslation(chk.pos, localModelMatrix);
         chk.pos[1] += 10.0;
         const y = globals.scnPlay.bgS.GroundCross(chk);
-        if (y === -Infinity)
-            debugger;
+        // if (y === -Infinity)
+        //     debugger;
         dstMatrix[13] = y;
     }
 
@@ -1348,10 +1347,10 @@ function spawnLegacyActor(globals: dGlobals, legacy: d_a_noclip_legacy, actor: f
             fetchArchive(`Sh`).then((rarc) => {
                 const mainModel = buildModel(rarc, `bmdm/shb.bmd`);
                 mainModel.bindANK1(parseBCK(rarc, 'bck/bfly.bck'));
-                mat4.scale(mainModel.modelMatrix, mainModel.modelMatrix, [9, 9, 9]);
+                scaleMatrix(mainModel.modelMatrix, mainModel.modelMatrix, 9);
                 const propellerModel = buildModel(rarc, `bmdm/shp.bmd`);
                 propellerModel.bindANK1(parseBCK(rarc, 'bck/pfly.bck'));
-                mat4.scale(propellerModel.modelMatrix, propellerModel.modelMatrix, [9, 9, 9]);
+                scaleMatrix(propellerModel.modelMatrix, propellerModel.modelMatrix, 9);
                 mat4.translate(propellerModel.modelMatrix, propellerModel.modelMatrix, [0, 50, 0]); // Estimated Y offset
             });
         } else {
@@ -1500,7 +1499,6 @@ function spawnLegacyActor(globals: dGlobals, legacy: d_a_noclip_legacy, actor: f
     else if (actorName === 'Roten3') fetchArchive(`Roten`).then((rarc) => buildModel(rarc, `bdl/roten03.bdl`));
     else if (actorName === 'Roten4') fetchArchive(`Roten`).then((rarc) => buildModel(rarc, `bdl/roten04.bdl`));
     else if (actorName === 'Fdai') fetchArchive(`Fdai`).then((rarc) => buildModel(rarc, `bdl/fdai.bdl`));
-    else if (actorName === 'GBoard') fetchArchive(`Kaisen_e`).then((rarc) => buildModel(rarc, `bdl/akbod.bdl`));
     else if (actorName === 'Nzfall') fetchArchive(`Pfall`).then((rarc) => buildModel(rarc, `bdl/nz.bdl`).bindANK1(parseBCK(rarc, `bcks/nz_wait.bck`)));
     else if (actorName === 'Paper') fetchArchive(`Opaper`).then((rarc) => {
         const m = buildModel(rarc, `bdl/opaper.bdl`);
@@ -1771,8 +1769,6 @@ function spawnLegacyActor(globals: dGlobals, legacy: d_a_noclip_legacy, actor: f
         // Other tags?
     } else if (actorName === 'HyoiKam') {
         // Misc. gameplay data
-    } else if (actorName === 'MtFlag' || actorName === 'SieFlag' || actorName === 'Gflag' || actorName === 'MjFlag') {
-        // Flags (only contains textures)
     } else if (actorName === 'Akabe') {
         // Collision
     } else {

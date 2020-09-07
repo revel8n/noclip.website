@@ -8,11 +8,11 @@ export function assert(b: boolean, message: string = ""): asserts b {
     }
 }
 
-export function assertExists<T>(v: T | null | undefined): T {
+export function assertExists<T>(v: T | null | undefined, name: string = ''): T {
     if (v !== undefined && v !== null)
         return v;
     else
-        throw new Error("Missing object");
+        throw new Error(`Missing object ${name}`);
 }
 
 export function nullify<T>(v: T | undefined | null): T | null {
@@ -35,7 +35,23 @@ export function readString(buffer: ArrayBufferSlice, offs: number, length: numbe
 }
 
 export function decodeString(buffer: ArrayBufferSlice, encoding = 'utf8'): string {
-    return new TextDecoder(encoding).decode(new Uint8Array(buffer.arrayBuffer, buffer.byteOffset, buffer.byteLength));
+    // ts-ignore here is required for node / tool builds, which doesn't specify TextDecoder.
+    // TODO(jstpierre): Support both node and browser through a different method, since
+    // I think this might pull in iconv-lite to the web build...
+
+    // @ts-ignore
+    if (typeof TextDecoder !== 'undefined') {
+        // @ts-ignore
+        return new TextDecoder(encoding)!.decode(buffer.copyToBuffer());
+    // @ts-ignore
+    } else if (typeof require !== 'undefined') {
+        // @ts-ignore
+        const iconv = require('iconv-lite');
+        // @ts-ignore
+        return iconv.decode(Buffer.from(buffer.copyToBuffer()), encoding);
+    } else {
+        throw "whoops";
+    }
 }
 
 // Requires that multiple is a power of two.

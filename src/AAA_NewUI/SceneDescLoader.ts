@@ -33,6 +33,12 @@ export class SceneDescLocationLoader implements LocationLoader<SceneDescLocation
     public providerKey = ProviderKey;
 
     private setCurrentScene(context: LocationLoadContext, scene: SceneGfx, location: SceneDescLocation): void {
+        // First, set our statechanged hook. This needs to happen before anything else, or we might
+        // crash when calling into the scene below.
+        scene.onstatechanged = () => {
+            // context.locationChanged();
+        };
+
         // Set our new scene. This needs to happen *first*.
         context.setScene(scene);
 
@@ -61,11 +67,6 @@ export class SceneDescLocationLoader implements LocationLoader<SceneDescLocation
         const state = location.sceneSaveState;
         if (state !== null && scene.deserializeSaveState)
             scene.deserializeSaveState(state.arrayBuffer, state.byteOffset, state.byteLength);
-
-        // When the state changes, force an update of the location.
-        scene.onstatechanged = () => {
-            // context.locationChanged();
-        };
     }
 
     public loadLocation(context: LocationLoadContext, location: SceneDescLocation): boolean {

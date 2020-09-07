@@ -1,13 +1,18 @@
 
 import { mat4, vec3 } from "gl-matrix";
-import { assertExists, hexzero } from "../util";
-import { LiveActor, ZoneAndLayer, dynamicSpawnZoneAndLayer } from "./LiveActor";
-import { SceneObjHolder, getObjectName } from "./Main";
-import { JMapInfoIter, createCsvParser } from "./JMapInfo";
-import { ViewerRenderInput } from "../viewer";
-import { initDefaultPos, isExistIndirectTexture, connectToSceneMapObjStrongLight, connectToSceneSky, connectToSceneIndirectMapObjStrongLight, connectToSceneBloom, isBrkExist, startBrk, startBtk, startBtp, setBtpFrameAndStop, startBrkIfExist, startBtkIfExist, startBva, startBck, startBckIfExist, setBckFrameAtRandom, getCamPos } from "./ActorUtil";
-import { emitEffect, MiniRouteGalaxy, MiniRoutePart, MiniRoutePoint, createModelObjMapObj } from "./MiscActor";
-import { isFirstStep } from "./Spine";
+import { assertExists, hexzero } from "../../util";
+import { LiveActor, ZoneAndLayer, dynamicSpawnZoneAndLayer } from "../LiveActor";
+import { SceneObjHolder, getObjectName } from "../Main";
+import { JMapInfoIter, createCsvParser } from "../JMapInfo";
+import { ViewerRenderInput } from "../../viewer";
+import { initDefaultPos, isExistIndirectTexture, connectToSceneMapObjStrongLight, connectToSceneSky, connectToSceneIndirectMapObjStrongLight, connectToSceneBloom, isBrkExist, startBrk, startBtk, startBtp, setBtpFrameAndStop, startBrkIfExist, startBtkIfExist, startBva, startBck, startBckIfExist, setBckFrameAtRandom, getCamPos } from "../ActorUtil";
+import { MiniRouteGalaxy, MiniRoutePart, MiniRoutePoint } from "./MiscActor";
+import { isFirstStep } from "../Spine";
+import { scaleMatrix } from "../../MathHelpers";
+import { initMultiFur } from "../Fur";
+import { LightType } from "../DrawBuffer";
+import { emitEffect } from "../EffectSystem";
+import { createModelObjMapObj } from "./ModelObj";
 
 // The old actor code, before we started emulating things natively.
 // Mostly used for SMG2 as we do not have symbols.
@@ -69,7 +74,7 @@ export class NoclipLegacyActor extends LiveActor<NoclipLegacyActorNrv> {
             connectToSceneBloom(sceneObjHolder, this);
 
         if (tag === SceneGraphTag.Skybox) {
-            mat4.scale(objinfo.modelMatrix, objinfo.modelMatrix, [.5, .5, .5]);
+            scaleMatrix(objinfo.modelMatrix, objinfo.modelMatrix, 0.5);
 
             // Kill translation. Need to figure out how the game does skyboxes.
             objinfo.modelMatrix[12] = 0;
@@ -203,6 +208,12 @@ export class NoclipLegacyActorSpawner {
 
         const name = objinfo.objName;
         switch (name) {
+            case 'HoneyQueen': {
+                const actor = await spawnGraph('HoneyQueen');
+                actor.initLightCtrl(this.sceneObjHolder);
+                initMultiFur(this.sceneObjHolder, actor, LightType.None);
+            } break;
+
             case 'MeteorCannon':
             case 'Plant':
             case 'Creeper':

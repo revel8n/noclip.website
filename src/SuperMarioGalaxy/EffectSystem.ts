@@ -4,7 +4,7 @@ import * as JPA from '../Common/JSYSTEM/JPA';
 
 import { createCsvParser, JMapInfoIter } from "./JMapInfo";
 import { SceneObjHolder } from "./Main";
-import { leftPad, assert, assertExists, fallback } from "../util";
+import { leftPad, assert, assertExists, fallback, fallbackUndefined } from "../util";
 import { GfxDevice } from "../gfx/platform/GfxPlatform";
 import { GfxRenderInstManager } from "../gfx/render/GfxRenderer";
 import { vec3, mat4 } from "gl-matrix";
@@ -18,7 +18,7 @@ import { getJointMtxByName } from './ActorUtil';
 import { Texture } from '../viewer';
 
 export class ParticleResourceHolder {
-    private effectNames: string[];
+    private effectNameToIndex = new Map<string, number>();
     private jpac: JPA.JPAC;
     private jpacData: JPA.JPACData;
     private resourceDatas = new Map<number, JPA.JPAResourceData>();
@@ -26,8 +26,9 @@ export class ParticleResourceHolder {
 
     constructor(effectArc: RARC.JKRArchive) {
         const effectNames = createCsvParser(effectArc.findFileData(`ParticleNames.bcsv`)!);
-        this.effectNames = effectNames.mapRecords((iter) => {
-            return assertExists(iter.getValueString('name'));
+        effectNames.mapRecords((iter, i) => {
+            const name = assertExists(iter.getValueString('name'));
+            this.effectNameToIndex.set(name, i);
         });
         this.autoEffectList = createCsvParser(effectArc.findFileData(`AutoEffectList.bcsv`)!);
 
@@ -37,7 +38,7 @@ export class ParticleResourceHolder {
     }
 
     public getUserIndex(name: string): number {
-        return this.effectNames.findIndex((effectName) => effectName === name);
+        return fallbackUndefined(this.effectNameToIndex.get(name), -1);
     }
 
     public getResourceRaw(name: string): JPA.JPAResourceRaw {
@@ -230,18 +231,18 @@ export function setupMultiEmitter(m: MultiEmitter, autoEffectIter: JMapInfoIter)
 
     const drawOrder = autoEffectIter.getValueString('DrawOrder');
     if (drawOrder === 'AFTER_INDIRECT')
-        m.setDrawOrder(DrawType.EFFECT_DRAW_AFTER_INDIRECT);
+        m.setDrawOrder(DrawType.EffectDrawAfterIndirect);
     else if (drawOrder === 'INDIRECT')
-        m.setDrawOrder(DrawType.EFFECT_DRAW_INDIRECT);
+        m.setDrawOrder(DrawType.EffectDrawIndirect);
     else if (drawOrder === '3D')
-        m.setDrawOrder(DrawType.EFFECT_DRAW_3D);
+        m.setDrawOrder(DrawType.EffectDraw3D);
     else if (drawOrder === 'BLOOM_EFFECT')
-        m.setDrawOrder(DrawType.EFFECT_DRAW_FOR_BLOOM_EFFECT);
+        m.setDrawOrder(DrawType.EffectDrawForBloomEffect);
     else if (drawOrder === 'AFTER_IMAGE_EFFECT')
-        m.setDrawOrder(DrawType.EFFECT_DRAW_AFTER_IMAGE_EFFECT);
+        m.setDrawOrder(DrawType.EffectDrawAfterImageEffect);
     else {
         console.warn('unknown draw order', drawOrder);
-        m.setDrawOrder(DrawType.EFFECT_DRAW_3D);
+        m.setDrawOrder(DrawType.EffectDraw3D);
     }
 
     const animName = assertExists(autoEffectIter.getValueString('AnimName'));
@@ -612,7 +613,7 @@ export class MultiEmitter {
     }
 }
 
-function registerAutoEffectInGroup(sceneObjHolder: SceneObjHolder, effectKeeper: EffectKeeper, actor: LiveActor, groupName: string): void {
+function registerAutoEffectInGroup(sceneObjHolder: SceneObjHolder, effectKeeper: EffectKeeper, groupName: string): void {
     if (sceneObjHolder.effectSystem === null)
         return;
 
@@ -682,7 +683,7 @@ export class EffectKeeper {
     private visibleDrawParticle: boolean = true;
 
     constructor(sceneObjHolder: SceneObjHolder, public actor: LiveActor, public groupName: string) {
-        registerAutoEffectInGroup(sceneObjHolder, this, this.actor, this.groupName);
+        registerAutoEffectInGroup(sceneObjHolder, this, this.groupName);
     }
 
     public addAutoEffect(sceneObjHolder: SceneObjHolder, autoEffectInfo: JMapInfoIter): void {
@@ -722,6 +723,11 @@ export class EffectKeeper {
             if (this.multiEmitters[i].name === name)
                 return this.multiEmitters[i];
         return null;
+    }
+
+    public changeEffectName(origName: string, newName: string): void {
+        const emitter = assertExists(this.getEmitter(origName));
+        emitter.name = newName;
     }
 
     public isRegisteredEmitter(name: string): boolean {
@@ -961,4 +967,81 @@ function deleteParticleEmitter(emitter: ParticleEmitter): void {
     const baseEmitter = assertExists(emitter.baseEmitter);
     baseEmitter.flags |= JPA.BaseEmitterFlags.STOP_EMIT_PARTICLES;
     baseEmitter.maxFrame = 1;
+}
+
+export function setEffectHostMtx(actor: LiveActor, effectName: string, hostMtx: mat4): void {
+    const emitter = assertExists(actor.effectKeeper!.getEmitter(effectName));
+    emitter.setHostMtx(hostMtx);
+}
+
+export function setEffectHostSRT(actor: LiveActor, effectName: string, translation: vec3 | null, rotation: vec3 | null, scale: vec3 | null): void {
+    const emitter = assertExists(actor.effectKeeper!.getEmitter(effectName));
+    emitter.setHostSRT(translation, rotation, scale);
+}
+
+export function setEffectName(actor: LiveActor, origName: string, newName: string): void {
+    actor.effectKeeper!.changeEffectName(origName, newName);
+}
+
+export function emitEffect(sceneObjHolder: SceneObjHolder, actor: LiveActor, name: string): void {
+    if (actor.effectKeeper === null)
+        return;
+    actor.effectKeeper.createEmitter(sceneObjHolder, name);
+}
+
+export function isEffectValid(actor: LiveActor, name: string): boolean {
+    if (actor.effectKeeper === null)
+        return false;
+    const multiEmitter = actor.effectKeeper.getEmitter(name);
+    if (multiEmitter !== null)
+        return multiEmitter.isValid();
+    else
+        return false;
+}
+
+export function emitEffectWithScale(sceneObjHolder: SceneObjHolder, actor: LiveActor, name: string, scale: number): void {
+    if (actor.effectKeeper === null)
+        return;
+    const emitter = actor.effectKeeper.createEmitter(sceneObjHolder, name);
+    vec3.set(scratchVec3a, scale, scale, scale);
+    emitter!.setGlobalScale(scratchVec3a);
+}
+
+export function setEffectColor(actor: LiveActor, name: string, prmColor: Color, envColor: Color): void {
+    if (actor.effectKeeper === null)
+        return;
+    const emitter = assertExists(actor.effectKeeper.getEmitter(name));
+    emitter.setGlobalPrmColor(prmColor, -1);
+    emitter.setGlobalEnvColor(envColor, -1);
+}
+
+export function setEffectEnvColor(actor: LiveActor, name: string, color: Color): void {
+    if (actor.effectKeeper === null)
+        return;
+    const emitter = assertExists(actor.effectKeeper.getEmitter(name));
+    emitter.setGlobalEnvColor(color, -1);
+}
+
+export function deleteEffect(sceneObjHolder: SceneObjHolder, actor: LiveActor, name: string): void {
+    if (actor.effectKeeper === null)
+        return;
+    actor.effectKeeper.deleteEmitter(sceneObjHolder, name);
+}
+
+export function forceDeleteEffect(sceneObjHolder: SceneObjHolder, actor: LiveActor, name: string): void {
+    if (actor.effectKeeper === null)
+        return;
+    actor.effectKeeper.forceDeleteEmitter(sceneObjHolder, name);
+}
+
+export function deleteEffectAll(actor: LiveActor): void {
+    if (actor.effectKeeper === null)
+        return;
+    actor.effectKeeper.deleteEmitterAll();
+}
+
+export function isRegisteredEffect(actor: LiveActor, name: string): boolean {
+    if (actor.effectKeeper === null)
+        return false;
+    return actor.effectKeeper.isRegisteredEmitter(name);
 }

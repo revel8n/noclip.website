@@ -3,7 +3,7 @@ import * as BRRES from './brres';
 
 import * as GX_Material from '../gx/gx_material';
 import { mat4, vec3 } from "gl-matrix";
-import { MaterialParams, GXTextureHolder, ColorKind, translateTexFilterGfx, translateWrapModeGfx, PacketParams, ub_MaterialParams, loadedDataCoalescerComboGfx } from "../gx/gx_render";
+import { MaterialParams, GXTextureHolder, ColorKind, translateTexFilterGfx, translateWrapModeGfx, PacketParams, loadedDataCoalescerComboGfx } from "../gx/gx_render";
 import { GXShapeHelperGfx, GXMaterialHelperGfx, autoOptimizeMaterial } from "../gx/gx_render";
 import { computeViewMatrix, computeViewMatrixSkybox, Camera, computeViewSpaceDepthFromWorldSpaceAABB, texProjCameraSceneTex } from "../Camera";
 import AnimationController from "../AnimationController";
@@ -18,7 +18,7 @@ import { getDebugOverlayCanvas2D, drawWorldSpaceLine } from '../DebugJunk';
 import { colorCopy, Color } from '../Color';
 import { computeNormalMatrix, texEnvMtx } from '../MathHelpers';
 import { GfxRenderCache } from '../gfx/render/GfxRenderCache';
-import { LoadedVertexPacket } from '../gx/gx_displaylist';
+import { LoadedVertexDraw } from '../gx/gx_displaylist';
 import { NormalizedViewportCoords } from '../gfx/helpers/RenderTargetHelpers';
 
 export class RRESTextureHolder extends GXTextureHolder<BRRES.TEX0> {
@@ -45,7 +45,8 @@ export class MDL0Model {
  
         for (let i = 0; i < this.mdl0.shapes.length; i++) {
             const shape = this.mdl0.shapes[i];
-            this.shapeData[i] = new GXShapeHelperGfx(device, cache, this.bufferCoalescer.coalescedBuffers[i], shape.loadedVertexLayout, shape.loadedVertexData);
+            const coalescedBuffers = this.bufferCoalescer.coalescedBuffers[i];
+            this.shapeData[i] = new GXShapeHelperGfx(device, cache, coalescedBuffers.vertexBuffers, coalescedBuffers.indexBuffer, shape.loadedVertexLayout, shape.loadedVertexData);
         }
 
         for (let i = 0; i < this.mdl0.materials.length; i++) {
@@ -89,8 +90,8 @@ class ShapeInstance {
             materialInstance.fillMaterialParams(template, textureHolder, instanceStateData, this.shape.mtxIdx, null, camera, viewport);
 
         packetParams.clear();
-        for (let p = 0; p < this.shape.loadedVertexData.packets.length; p++) {
-            const packet = this.shape.loadedVertexData.packets[p];
+        for (let p = 0; p < this.shape.loadedVertexData.draws.length; p++) {
+            const packet = this.shape.loadedVertexData.draws[p];
 
             let instVisible = false;
             if (usesSkinning) {
@@ -116,7 +117,7 @@ class ShapeInstance {
 
             const renderInst = renderInstManager.newRenderInst();
             this.shapeData.setOnRenderInst(renderInst, packet);
-            this.shapeData.fillPacketParams(packetParams, renderInst);
+            materialInstance.materialHelper.allocatePacketParamsDataOnInst(renderInst, packetParams);
 
             if (usesSkinning)
                 materialInstance.fillMaterialParams(renderInst, textureHolder, instanceStateData, this.shape.mtxIdx, packet, camera, viewport);
@@ -332,7 +333,7 @@ class MaterialInstance {
         }
     }
 
-    private fillMaterialParamsData(materialParams: MaterialParams, textureHolder: GXTextureHolder, instanceStateData: InstanceStateData, posNrmMatrixIdx: number, packet: LoadedVertexPacket | null = null, camera: Camera, viewport: NormalizedViewportCoords): void {
+    private fillMaterialParamsData(materialParams: MaterialParams, textureHolder: GXTextureHolder, instanceStateData: InstanceStateData, posNrmMatrixIdx: number, packet: LoadedVertexDraw | null = null, camera: Camera, viewport: NormalizedViewportCoords): void {
         const material = this.materialData.material;
 
         for (let i = 0; i < 8; i++) {
@@ -415,12 +416,9 @@ class MaterialInstance {
         this.materialHelper.setOnRenderInst(device, cache, renderInst);
     }
 
-    public fillMaterialParams(renderInst: GfxRenderInst, textureHolder: GXTextureHolder, instanceStateData: InstanceStateData, posNrmMatrixIdx: number, packet: LoadedVertexPacket | null, camera: Camera, viewport: NormalizedViewportCoords): void {
+    public fillMaterialParams(renderInst: GfxRenderInst, textureHolder: GXTextureHolder, instanceStateData: InstanceStateData, posNrmMatrixIdx: number, packet: LoadedVertexDraw | null, camera: Camera, viewport: NormalizedViewportCoords): void {
         this.fillMaterialParamsData(materialParams, textureHolder, instanceStateData, posNrmMatrixIdx, packet, camera, viewport);
-
-        const offs = renderInst.allocateUniformBuffer(ub_MaterialParams, this.materialHelper.materialParamsBufferSize);
-        this.materialHelper.fillMaterialParamsDataOnInst(renderInst, offs, materialParams);
-
+        this.materialHelper.allocateMaterialParamsDataOnInst(renderInst, materialParams);
         renderInst.setSamplerBindingsFromTextureMappings(materialParams.m_TextureMapping);
     }
 
@@ -865,7 +863,7 @@ export class MDL0ModelInstance {
                     vec3.set(scratchVec3b, 0, 0, 0);
                     vec3.transformMat4(scratchVec3b, scratchVec3b, this.instanceStateData.jointToWorldMatrixArray[dstMtxId]);
 
-                    drawWorldSpaceLine(ctx, camera, scratchVec3a, scratchVec3b);
+                    drawWorldSpaceLine(ctx, camera.clipFromWorldMatrix, scratchVec3a, scratchVec3b);
                 }
             } else if (op.op === BRRES.ByteCodeOp.MTXDUP) {
                 const srcMtxId = op.fromMtxId;

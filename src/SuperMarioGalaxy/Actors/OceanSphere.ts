@@ -1,23 +1,23 @@
 
-import * as GX from '../gx/gx_enum';
-import { LiveActor, ZoneAndLayer, isDead } from "./LiveActor";
-import { vec2, vec3, mat4 } from "gl-matrix";
-import { assert } from "../util";
-import { MathConstants, transformVec3Mat4w0, Vec3UnitX, Vec3UnitY, Vec3UnitZ, Vec3NegX, Vec3NegY, Vec3NegZ, computeMatrixWithoutTranslation } from "../MathHelpers";
-import { SceneObjHolder, SceneObj, getDeltaTimeFrames } from "./Main";
-import { JMapInfoIter } from "./JMapInfo";
-import { connectToScene, initDefaultPos, loadBTIData, isValidDraw, vecKillElement } from "./ActorUtil";
-import { DrawType } from "./NameObj";
-import { BTIData } from "../Common/JSYSTEM/JUTTexture";
-import { GfxDevice } from "../gfx/platform/GfxPlatform";
+import * as GX from '../../gx/gx_enum';
+import { LiveActor, ZoneAndLayer, isDead } from "../LiveActor";
+import { vec2, vec3, mat4, ReadonlyVec3, ReadonlyVec2 } from "gl-matrix";
+import { assert } from "../../util";
+import { MathConstants, transformVec3Mat4w0, Vec3UnitX, Vec3UnitY, Vec3UnitZ, Vec3NegX, Vec3NegY, Vec3NegZ, computeMatrixWithoutTranslation } from "../../MathHelpers";
+import { SceneObjHolder, SceneObj, getDeltaTimeFrames } from "../Main";
+import { JMapInfoIter } from "../JMapInfo";
+import { connectToScene, initDefaultPos, loadBTIData, isValidDraw, vecKillElement } from "../ActorUtil";
+import { DrawType, MovementType } from "../NameObj";
+import { BTIData } from "../../Common/JSYSTEM/JUTTexture";
+import { GfxDevice } from "../../gfx/platform/GfxPlatform";
 import { isEqualStageName } from "./MiscActor";
-import { ViewerRenderInput } from "../viewer";
-import { GfxRenderInstManager } from "../gfx/render/GfxRenderer";
-import { TDDraw } from "./DDraw";
-import { GXMaterialHelperGfx, MaterialParams, PacketParams, ColorKind, ub_MaterialParams, ub_PacketParams, ub_PacketParamsBufferSize, fillPacketParamsData } from '../gx/gx_render';
-import { GXMaterialBuilder } from '../gx/GXMaterialBuilder';
-import { colorFromRGBA8, colorCopy, colorNewFromRGBA8 } from '../Color';
-import { WaterAreaHolder, WaterInfo } from './MiscMap';
+import { ViewerRenderInput } from "../../viewer";
+import { GfxRenderInstManager } from "../../gfx/render/GfxRenderer";
+import { TDDraw } from "../DDraw";
+import { GXMaterialHelperGfx, MaterialParams, PacketParams, ColorKind } from '../../gx/gx_render';
+import { GXMaterialBuilder } from '../../gx/GXMaterialBuilder';
+import { colorFromRGBA8, colorCopy, colorNewFromRGBA8 } from '../../Color';
+import { WaterAreaHolder, WaterInfo } from '../MiscMap';
 
 class OceanSpherePoint {
     // Center of the sphere (translation of the owning actor).
@@ -35,7 +35,7 @@ class OceanSpherePoint {
 
     public texCoord = vec2.create();
 
-    constructor(translation: vec3, normal: vec3, sphereWave1Pos: number, sphereWave2Pos: number, texCoord: vec2) {
+    constructor(translation: vec3, normal: ReadonlyVec3, sphereWave1Pos: number, sphereWave2Pos: number, texCoord: ReadonlyVec2) {
         this.translation = translation;
         vec3.copy(this.pos, translation);
         vec3.copy(this.normal, normal);
@@ -70,7 +70,7 @@ class OceanSpherePlane {
     private axisPointCount: number;
     private gridPointCount: number;
 
-    constructor(pointCount: number, translation: vec3, axis1: vec3, axis2: vec3, v1: vec2, v2: vec2, v3: vec2) {
+    constructor(pointCount: number, translation: vec3, axis1: ReadonlyVec3, axis2: ReadonlyVec3, v1: ReadonlyVec2, v2: ReadonlyVec2, v3: ReadonlyVec2) {
         this.axisPointCount = pointCount - 2;
         this.gridPointCount = this.axisPointCount * this.axisPointCount;
 
@@ -122,7 +122,7 @@ class OceanSpherePlane {
 class OceanSpherePlaneEdge {
     public points: OceanSpherePoint[] = [];
 
-    constructor(pointCount: number, translation: vec3, axis1: vec3, axis2: vec3, v1: vec2, v2: vec2) {
+    constructor(pointCount: number, translation: vec3, axis1: ReadonlyVec3, axis2: ReadonlyVec3, v1: ReadonlyVec2, v2: ReadonlyVec2) {
         const edgePointCount = pointCount - 2;
 
         vec3.cross(scratchVec3a, axis1, axis2);
@@ -188,7 +188,7 @@ export class OceanSphere extends LiveActor<OceanSphereNrv> {
     constructor(zoneAndLayer: ZoneAndLayer, sceneObjHolder: SceneObjHolder, infoIter: JMapInfoIter) {
         super(zoneAndLayer, sceneObjHolder, 'OceanSphere');
 
-        connectToScene(sceneObjHolder, this, 0x22, -1, -1, DrawType.OCEAN_SPHERE);
+        connectToScene(sceneObjHolder, this, MovementType.MapObj, -1, -1, DrawType.OceanSphere);
         initDefaultPos(sceneObjHolder, this, infoIter);
 
         this.radius = 100.0 * this.scale[0];
@@ -304,7 +304,7 @@ export class OceanSphere extends LiveActor<OceanSphereNrv> {
         return vec3.distance(position, this.translation) <= this.radius;
     }
 
-    public calcWaterInfo(dst: WaterInfo, pos: vec3, gravity: vec3): void {
+    public calcWaterInfo(dst: WaterInfo, pos: ReadonlyVec3, gravity: ReadonlyVec3): void {
         vec3.sub(scratchVec3a, pos, this.translation);
         vec3.negate(scratchVec3b, gravity);
         const projected = vecKillElement(scratchVec3a, scratchVec3a, scratchVec3b);
@@ -465,9 +465,8 @@ export class OceanSphere extends LiveActor<OceanSphereNrv> {
         const device = sceneObjHolder.modelCache.device;
 
         const template = renderInstManager.pushTemplateRenderInst();
-        template.allocateUniformBuffer(ub_PacketParams, ub_PacketParamsBufferSize);
         mat4.copy(packetParams.u_PosMtx[0], viewerInput.camera.viewMatrix);
-        fillPacketParamsData(template.mapUniformBufferF32(ub_PacketParams), template.getUniformBufferOffset(ub_PacketParams), packetParams);
+        this.materialHelperEnvBack.allocatePacketParamsDataOnInst(template, packetParams);
 
         if (this.isStartPosCamera && !this.isCameraInside) {
             // TODO(jstpierre)
@@ -487,8 +486,7 @@ export class OceanSphere extends LiveActor<OceanSphereNrv> {
             colorFromRGBA8(materialParams.u_Color[ColorKind.C1], 0x000000FF);
 
             const materialHelper = this.materialHelperEnvBack;
-            const offs = renderInstEnvBack.allocateUniformBuffer(ub_MaterialParams, materialHelper.materialParamsBufferSize);
-            materialHelper.fillMaterialParamsDataOnInst(renderInstEnvBack, offs, materialParams);
+            materialHelper.allocateMaterialParamsDataOnInst(renderInstEnvBack, materialParams);
             materialHelper.setOnRenderInst(device, renderInstManager.gfxRenderCache, renderInstEnvBack);
             renderInstManager.submitRenderInst(renderInstEnvBack);
         }
@@ -512,8 +510,7 @@ export class OceanSphere extends LiveActor<OceanSphereNrv> {
         this.oceanSphereTex.fillTextureMapping(materialParams.m_TextureMapping[0]);
         renderInstXluBack.setSamplerBindingsFromTextureMappings(materialParams.m_TextureMapping);
 
-        const offs = renderInstXluBack.allocateUniformBuffer(ub_MaterialParams, materialHelper.materialParamsBufferSize);
-        materialHelper.fillMaterialParamsDataOnInst(renderInstXluBack, offs, materialParams);
+        materialHelper.allocateMaterialParamsDataOnInst(renderInstXluBack, materialParams);
         materialHelper.setOnRenderInst(device, renderInstManager.gfxRenderCache, renderInstXluBack);
         renderInstManager.submitRenderInst(renderInstXluBack);
 
@@ -524,8 +521,7 @@ export class OceanSphere extends LiveActor<OceanSphereNrv> {
             colorCopy(materialParams.u_Color[ColorKind.C1], this.tevReg1Back);
 
             const materialHelper = this.materialHelperXluFront;
-            const offs = renderInstFrontFaces.allocateUniformBuffer(ub_MaterialParams, materialHelper.materialParamsBufferSize);
-            materialHelper.fillMaterialParamsDataOnInst(renderInstFrontFaces, offs, materialParams);
+            materialHelper.allocateMaterialParamsDataOnInst(renderInstFrontFaces, materialParams);
             materialHelper.setOnRenderInst(device, renderInstManager.gfxRenderCache, renderInstFrontFaces);
             renderInstManager.submitRenderInst(renderInstFrontFaces);
         }

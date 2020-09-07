@@ -1,26 +1,27 @@
 
 import { NameObj, MovementType, DrawType } from "./NameObj";
-import { OceanBowl } from "./OceanBowl";
-import { SceneObjHolder, SpecialTextureType, getDeltaTimeFrames } from "./Main";
+import { OceanBowl } from "./Actors/OceanBowl";
+import { SceneObjHolder, SpecialTextureType, getDeltaTimeFrames, SceneObj } from "./Main";
 import { connectToSceneScreenEffectMovement, getCamPos, connectToSceneAreaObj, getPlayerPos, connectToScene, loadBTIData, setTextureMatrixST } from "./ActorUtil";
 import { ViewerRenderInput } from "../viewer";
 import { AreaObjMgr, AreaObj, AreaFormType } from "./AreaObj";
-import { vec3, mat4 } from "gl-matrix";
-import { OceanRing, isEqualStageName } from "./MiscActor";
+import { vec3, mat4, ReadonlyVec3 } from "gl-matrix";
+import { OceanRing, isEqualStageName, HeatHazeDirector } from "./Actors/MiscActor";
 import { JMapInfoIter, getJMapInfoBool, getJMapInfoArg0, getJMapInfoArg1, getJMapInfoArg2 } from "./JMapInfo";
 import { ZoneAndLayer, LiveActor, dynamicSpawnZoneAndLayer } from "./LiveActor";
 import { createNormalBloom } from "./ImageEffect";
-import { fallback, nArray } from "../util";
-import { OceanSphere } from "./OceanSphere";
+import { fallback } from "../util";
+import { OceanSphere } from "./Actors/OceanSphere";
 import { colorNewFromRGBA8, colorCopy, colorLerp } from "../Color";
 import { BTIData } from "../Common/JSYSTEM/JUTTexture";
 import { GfxDevice } from "../gfx/platform/GfxPlatform";
 import { GfxRenderInstManager } from "../gfx/render/GfxRenderer";
-import { GXMaterialHelperGfx, ub_SceneParams, ub_SceneParamsBufferSize, ub_MaterialParams, MaterialParams, PacketParams, ub_PacketParams, ub_PacketParamsBufferSize, fillPacketParamsData, ColorKind } from "../gx/gx_render";
+import { GXMaterialHelperGfx, ub_SceneParamsBufferSize, MaterialParams, PacketParams, ColorKind } from "../gx/gx_render";
 import { GXMaterialBuilder } from "../gx/GXMaterialBuilder";
 import { TDDraw } from "./DDraw";
 import * as GX from '../gx/gx_enum';
 import { MathConstants, saturate, Vec3NegY } from "../MathHelpers";
+import { GX_Program } from "../gx/gx_material";
 
 //#region Water
 export class WaterArea extends AreaObj {
@@ -90,7 +91,7 @@ export class WaterAreaHolder extends NameObj {
         this.oceanSphere.push(oceanSphere);
     }
 
-    public getWaterAreaInfo(info: WaterInfo, pos: vec3, gravity: vec3): void {
+    public getWaterAreaInfo(info: WaterInfo, pos: ReadonlyVec3, gravity: ReadonlyVec3): void {
         if (info.oceanBowl !== null) {
             info.oceanBowl.calcWaterInfo(info, pos, gravity);
         } else if (info.oceanSphere !== null) {
@@ -236,7 +237,7 @@ export class WaterCameraFilter extends LiveActor<WaterCameraFilterNrv> {
     constructor(zoneAndLayer: ZoneAndLayer, sceneObjHolder: SceneObjHolder) {
         super(zoneAndLayer, sceneObjHolder, 'WaterCameraFilter');
 
-        connectToScene(sceneObjHolder, this, MovementType.MapObj, -1, -1, DrawType.WATER_CAMERA_FILTER);
+        connectToScene(sceneObjHolder, this, MovementType.MapObj, -1, -1, DrawType.WaterCameraFilter);
         // invalidateClipping
         this.initNerve(WaterCameraFilterNrv.Air);
 
@@ -356,14 +357,11 @@ export class WaterCameraFilter extends LiveActor<WaterCameraFilterNrv> {
         colorCopy(materialParams.u_Color[ColorKind.C0], this.color);
 
         this.materialHelper.setOnRenderInst(device, cache, renderInst);
-        renderInst.setUniformBufferOffset(ub_SceneParams, sceneObjHolder.renderParams.sceneParamsOffs2D, ub_SceneParamsBufferSize);
-        const offs = renderInst.allocateUniformBuffer(ub_MaterialParams, this.materialHelper.materialParamsBufferSize);
-        this.materialHelper.fillMaterialParamsDataOnInst(renderInst, offs, this.materialParams);
+        renderInst.setUniformBufferOffset(GX_Program.ub_SceneParams, sceneObjHolder.renderParams.sceneParamsOffs2D, ub_SceneParamsBufferSize);
+        this.materialHelper.allocateMaterialParamsDataOnInst(renderInst, this.materialParams);
         renderInst.setSamplerBindingsFromTextureMappings(this.materialParams.m_TextureMapping);
-
-        renderInst.allocateUniformBuffer(ub_PacketParams, ub_PacketParamsBufferSize);
         mat4.identity(packetParams.u_PosMtx[0]);
-        fillPacketParamsData(renderInst.mapUniformBufferF32(ub_PacketParams), renderInst.getUniformBufferOffset(ub_PacketParams), packetParams);
+        this.materialHelper.allocatePacketParamsDataOnInst(renderInst, packetParams);
     }
 
     public destroy(device: GfxDevice): void {
@@ -440,5 +438,31 @@ export function createSwitchSphere(zoneAndLayer: ZoneAndLayer, sceneObjHolder: S
 
 export function createSwitchCylinder(zoneAndLayer: ZoneAndLayer, sceneObjHolder: SceneObjHolder, infoIter: JMapInfoIter): SwitchArea {
     return new SwitchArea(zoneAndLayer, sceneObjHolder, infoIter, AreaFormType.Cylinder);
+}
+//#endregion
+
+//#region HazeCube
+export class HazeCube extends AreaObj {
+    public depth: number;
+
+    protected parseArgs(infoIter: JMapInfoIter): void {
+        this.depth = fallback(getJMapInfoArg0(infoIter), 1000);
+    }
+
+    protected postCreate(sceneObjHolder: SceneObjHolder): void {
+        sceneObjHolder.create(SceneObj.HeatHazeDirector);
+    }
+
+    public static requestArchives(sceneObjHolder: SceneObjHolder): void {
+        HeatHazeDirector.requestArchives(sceneObjHolder);
+    }
+}
+
+export function createHazeCube(zoneAndLayer: ZoneAndLayer, sceneObjHolder: SceneObjHolder, infoIter: JMapInfoIter): HazeCube {
+    return new HazeCube(zoneAndLayer, sceneObjHolder, infoIter, AreaFormType.CubeGround);
+}
+
+export function requestArchivesHazeCube(sceneObjHolder: SceneObjHolder, infoIter: JMapInfoIter): void {
+    HazeCube.requestArchives(sceneObjHolder);
 }
 //#endregion

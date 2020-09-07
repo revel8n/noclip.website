@@ -200,6 +200,7 @@ export class DataFetcher {
 
     public reset(): void {
         this.aborted = false;
+        this.doneRequestCount = 0;
     }
 
     public waitForLoad(): Promise<void> {

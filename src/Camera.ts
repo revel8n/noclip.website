@@ -2,13 +2,14 @@
 import { mat4, vec3, vec4, quat } from 'gl-matrix';
 import InputManager from './InputManager';
 import { Frustum, AABB } from './Geometry';
-import { clampRange, computeProjectionMatrixFromFrustum, computeUnitSphericalCoordinates, computeProjectionMatrixFromCuboid, texProjPerspMtx, texProjOrthoMtx, lerpAngle, MathConstants, getMatrixAxisY, transformVec3Mat4w1, Vec3Zero, Vec3UnitY, Vec3UnitX, Vec3UnitZ } from './MathHelpers';
+import { clampRange, computeProjectionMatrixFromFrustum, computeUnitSphericalCoordinates, computeProjectionMatrixFromCuboid, texProjPerspMtx, texProjOrthoMtx, lerpAngle, MathConstants, getMatrixAxisY, transformVec3Mat4w1, Vec3Zero, Vec3UnitY, Vec3UnitX, Vec3UnitZ, transformVec3Mat4w0, getMatrixAxisZ, vec3QuantizeMajorAxis } from './MathHelpers';
 import { projectionMatrixConvertClipSpaceNearZ } from './gfx/helpers/ProjectionHelpers';
 import { NormalizedViewportCoords } from './gfx/helpers/RenderTargetHelpers';
 import { WebXRContext } from './WebXR';
 import { assert } from './util';
 import { reverseDepthForPerspectiveProjectionMatrix, reverseDepthForOrthographicProjectionMatrix } from './gfx/helpers/ReversedDepthHelpers';
 import { GfxClipSpaceNearZ } from './gfx/platform/GfxPlatform';
+import { CameraAnimationManager } from './CameraAnimationManager';
 
 // TODO(jstpierre): All of the cameras and camera controllers need a pretty big overhaul.
 
@@ -314,6 +315,7 @@ export class FPSCameraController implements CameraController {
     private keyMoveDrag = 0.8;
     private keyAngleChangeVelFast = 0.1;
     private keyAngleChangeVelSlow = 0.02;
+    private worldForward: vec3 | null = null;
 
     private mouseLookSpeed = 500;
     private mouseLookDragFast = 0;
@@ -354,6 +356,20 @@ export class FPSCameraController implements CameraController {
         let keyMoveMult = 1;
         if (isShiftPressed)
             keyMoveMult = this.keyMoveShiftMult;
+
+        if (inputManager.isKeyDownEventTriggered('Numpad4') || inputManager.isKeyDownEventTriggered('Numpad1')) {
+            // Save world forward vector from current position.
+            if (this.worldForward === null) {
+                this.worldForward = vec3.create();
+                getMatrixAxisZ(this.worldForward, camera.worldMatrix);
+
+                if (inputManager.isKeyDownEventTriggered('Numpad4'))
+                    vec3QuantizeMajorAxis(this.worldForward, this.worldForward);
+            } else {
+                // Toggle.
+                this.worldForward = null;
+            }
+        }
 
         const keyMoveSpeedCap = this.keyMoveSpeed * keyMoveMult;
         const keyMoveVelocity = keyMoveSpeedCap * this.keyMoveVelocityMult;
@@ -402,11 +418,27 @@ export class FPSCameraController implements CameraController {
             vec3.set(viewUp, 0, 1, 0);
         }
 
+        const viewRight = scratchVec3c;
+        const viewForward = scratchVec3d;
+
+        if (this.worldForward !== null) {
+            transformVec3Mat4w0(viewForward, camera.viewMatrix, this.worldForward);
+            vec3.cross(viewRight, viewUp, viewForward);
+        } else {
+            vec3.copy(viewRight, Vec3UnitX);
+            vec3.copy(viewForward, Vec3UnitZ);
+        }
+
         if (!vec3.exactEquals(keyMovement, Vec3Zero)) {
             const finalMovement = scratchVec3a;
-            vec3.set(finalMovement, keyMovement[0], 0, keyMovement[2]);
+            vec3.set(finalMovement, 0, 0, 0);
+
+            vec3.scaleAndAdd(finalMovement, finalMovement, viewRight, keyMovement[0]);
+            vec3.scaleAndAdd(finalMovement, finalMovement, viewForward, keyMovement[2]);
             vec3.scaleAndAdd(finalMovement, finalMovement, viewUp, keyMovement[1]);
+
             vec3.scale(finalMovement, finalMovement, this.sceneMoveSpeedMult);
+
             vec3.copy(camera.linearVelocity, finalMovement);
             mat4.translate(camera.worldMatrix, camera.worldMatrix, finalMovement);
             updated = true;
@@ -463,6 +495,87 @@ export class FPSCameraController implements CameraController {
 
         return important ? CameraUpdateResult.ImportantChange : updated ? CameraUpdateResult.Changed : CameraUpdateResult.Unchanged;
     }
+}
+
+export class StudioCameraController extends FPSCameraController {
+    private isAnimationPlaying: boolean = false;
+    private stepTrs: vec3 = vec3.create();
+    private stepRotQ: quat = quat.create();
+    /**
+     * Indicates if the camera is currently positioned on a keyframe's end position.
+     */
+    private isOnKeyframe: boolean = false;
+
+    constructor(private animationManager: CameraAnimationManager) {
+        super();
+    }
+
+    public update(inputManager: InputManager, dt: number): CameraUpdateResult {
+        let result;
+        if (this.isAnimationPlaying) {
+            result = this.updateAnimation(dt);
+            if (result === CameraUpdateResult.Changed) {
+                mat4.invert(this.camera.viewMatrix, this.camera.worldMatrix);
+                this.camera.worldMatrixUpdated();
+            }
+            if (inputManager.isKeyDownEventTriggered('Escape')) {
+                this.stopAnimation();
+            }
+        } else {
+            if (!this.isOnKeyframe && inputManager.isKeyDownEventTriggered('Enter')) {
+                this.animationManager.addNextKeyframe(mat4.clone(this.camera.worldMatrix));
+                this.isOnKeyframe = true;
+            }
+            if (inputManager.isKeyDownEventTriggered('Escape')) {
+                this.animationManager.endEditKeyframePosition();
+            }
+            result = super.update(inputManager, dt);
+            if (this.isOnKeyframe && result !== CameraUpdateResult.Unchanged) {
+                this.isOnKeyframe = false;
+            }
+        }
+
+        return result;
+    }
+
+    public updateAnimation(dt: number): CameraUpdateResult {
+        if (this.animationManager.isKeyframeFinished()) {
+            if (this.animationManager.playbackHasNextKeyframe())
+                this.animationManager.playbackNextKeyframe();
+            else
+                this.stopAnimation();
+            return CameraUpdateResult.Unchanged;
+        }
+
+        if (this.animationManager.interpFinished()) {
+            // The interpolation is finished, but this keyframe still has a hold duration to complete.
+            this.animationManager.update(dt);
+            return CameraUpdateResult.Unchanged;
+        } else {
+            this.animationManager.update(dt);
+            this.animationManager.playbackInterpolationStep(this.stepRotQ, this.stepTrs);
+            mat4.fromRotationTranslation(this.camera.worldMatrix, this.stepRotQ, this.stepTrs);
+            return CameraUpdateResult.Changed;
+        }
+    }
+
+    public setToPosition(pos: mat4): void {
+        mat4.copy(this.camera.worldMatrix, pos);
+        mat4.invert(this.camera.viewMatrix, this.camera.worldMatrix);
+        this.camera.worldMatrixUpdated();
+        this.isOnKeyframe = true;
+    }
+
+    public playAnimation(startPos: mat4) {
+        this.isAnimationPlaying = true;
+        this.setToPosition(startPos);
+    }
+
+    public stopAnimation() {
+        this.isAnimationPlaying = false;
+        this.animationManager.fireStoppedEvent();
+    }
+
 }
 
 export class XRCameraController {

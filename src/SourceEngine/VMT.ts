@@ -73,6 +73,7 @@ class ValveKeyValueParser {
         // already consumed "{"
         const val: VKFPair[] = [];
         while (this.hastok()) {
+            this.skipcomment();
             const tok = this.chew();
             if (tok == "}") {
                 return val;
@@ -81,7 +82,6 @@ class ValveKeyValueParser {
             }
 
             val.push(this.pair());
-            this.skipcomment();
         }
         return val;
     }
@@ -119,7 +119,7 @@ class ValveKeyValueParser {
     }
 
     private unquote(start: string): string {
-        return this.run(/[a-zA-Z$]/, start);
+        return this.run(/[0-9a-zA-Z$%<>=/\\_]/, start);
     }
 
     public unit(): any {
@@ -130,7 +130,7 @@ class ValveKeyValueParser {
             return this.obj();
         else if (tok === '"')
             return this.quote(tok);
-        else if (/[a-zA-Z$%]/.test(tok))
+        else if (/[a-zA-Z$%<>=/\\_]/.test(tok))
             return this.unquote(tok);
         else if (/[-0-9.]/.test(tok))
             return this.num(tok);
@@ -139,7 +139,9 @@ class ValveKeyValueParser {
     }
 
     public pair(): VKFPair {
-        const k = (this.unit() as string).toLowerCase();
+        const kk = this.unit();
+        if (typeof kk !== 'string') debugger;
+        const k = (kk as string).toLowerCase();
         const v = this.unit();
         return [k, v];
     }
@@ -170,7 +172,7 @@ function patch(dst: any, srcpair: VKFPair[], replace: boolean): void {
 
 export async function parseVMT(filesystem: SourceFileSystem, path: string, depth: number = 0): Promise<VMT> {
     async function parsePath(path: string): Promise<VMT> {
-        path = filesystem.resolvePath(path);
+        path = filesystem.resolvePath(path, '.vmt');
         const buffer = assertExists(await filesystem.fetchFileData(path));
         const str = new TextDecoder('utf8').decode(buffer.createTypedArray(Uint8Array));
 
@@ -215,7 +217,10 @@ export async function parseVMT(filesystem: SourceFileSystem, path: string, depth
 }
 
 export function vmtParseVector(S: string): number[] {
-    assert((S.startsWith('[') && S.endsWith(']')) || (S.startsWith('{') && S.endsWith('}')));
+    // There are two syntaxes for vectors: [1.0 1.0 1.0] and {255 255 255}. These should both represent white.
+    // In practice, combine_tower01b.vmt has "[.25 .25 .25}", so the starting delimeter is all that matters.
+    assert((S.startsWith('[') || S.startsWith('{')) && (S.endsWith(']') || S.endsWith('}')));
+
     const scale = S.startsWith('{') ? 1/255.0 : 1;
     return S.slice(1, -1).trim().split(/\s+/).map((item) => Number(item) * scale);
 }

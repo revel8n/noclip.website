@@ -91,6 +91,7 @@ import { mat4 } from 'gl-matrix';
 import { GfxDevice } from './gfx/platform/GfxPlatform';
 
 import { NUI } from './ui/ui';
+import InputManager from './InputManager';
 
 const sceneGroups = [
     "Wii",
@@ -133,6 +134,9 @@ const sceneGroups = [
     Scenes_KingdomHeartsIIFinalMix.sceneGroup,
     "Xbox",
     Scenes_SpongeBobBFBB.sceneGroup,
+    "PC",
+    Scenes_HalfLife2.sceneGroup,
+    Scenes_Portal.sceneGroup,
     "Experimental",
     Scenes_BanjoTooie.sceneGroup,
     Scenes_DarkSouls.sceneGroup,
@@ -143,7 +147,6 @@ const sceneGroups = [
     Scenes_Fez.sceneGroup,
     Scenes_GTA.sceneGroup.vc,
     Scenes_GTA.sceneGroup.sa,
-    Scenes_HalfLife2.sceneGroup,
     Scenes_LuigisMansion3D.sceneGroup,
     Scenes_MarioAndSonicAtThe2012OlympicGames.sceneGroup,
     Scenes_MetroidPrime.sceneGroupMP3,
@@ -162,7 +165,6 @@ const sceneGroups = [
     Scenes_InteractiveExamples.sceneGroup,
     Scenes_SunshineWater.sceneGroup,
     Scenes_TeamFortress2.sceneGroup,
-    Scenes_Portal.sceneGroup,
 ];
 
 function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
@@ -214,6 +216,7 @@ class SceneLoadContext implements LocationLoadContext {
     public uiContainer: HTMLElement;
     public legacyUI: UI;
     public scene: SceneGfxBase | null = null;
+    public inputManager: InputManager;
 
     public onabort: ((context: LocationLoadContext) => void) | null = null;
 
@@ -224,6 +227,7 @@ class SceneLoadContext implements LocationLoadContext {
         this.dataShare = this.main.dataShare;
         this.dataFetcher = this.main.dataFetcher;
         this.legacyUI = this.main.ui;
+        this.inputManager = this.main.viewer.inputManager;
 
         this.uiContainer = document.createElement('div');
     }
@@ -341,8 +345,8 @@ class Main {
         };
         this.viewer.oncamerachanged = () => {
         };
-        this.viewer.inputManager.onisdraggingchanged = () => {
-            this.ui.setIsDragging(this.viewer.inputManager.isDragging());
+        this.viewer.inputManager.ondraggingmodechanged = () => {
+            this.ui.setDraggingMode(this.viewer.inputManager.getDraggingMode());
         };
 
         this._makeUI();

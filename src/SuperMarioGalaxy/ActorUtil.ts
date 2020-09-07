@@ -1,25 +1,25 @@
 
 // Utilities for various actor implementations.
 
-import { LiveActor, getJMapInfoTrans, getJMapInfoRotate, MessageType, MsgSharedGroup } from "./LiveActor";
-import { LoopMode } from "../Common/JSYSTEM/J3D/J3DLoader";
-import { SceneObjHolder, SceneObj } from "./Main";
-import { JMapInfoIter, getJMapInfoScale } from "./JMapInfo";
-import { DrawType, DrawBufferType, CalcAnimType, MovementType, NameObj } from "./NameObj";
-import { assertExists } from "../util";
-import { BTIData, BTI } from "../Common/JSYSTEM/JUTTexture";
-import { JKRArchive } from "../Common/JSYSTEM/JKRArchive";
-import { getRes, XanimePlayer } from "./Animation";
-import { vec3, vec2, mat4, quat } from "gl-matrix";
-import { HitSensor, HitSensorType } from "./HitSensor";
-import { RailDirection } from "./RailRider";
-import { isNearZero, isNearZeroVec3, MathConstants, normToLength, Vec3Zero, saturate, Vec3UnitY, Vec3UnitZ, setMatrixTranslation, getMatrixTranslation } from "../MathHelpers";
+import { mat4, quat, ReadonlyQuat, ReadonlyVec3, vec2, vec3 } from "gl-matrix";
 import { Camera, texProjCameraSceneTex } from "../Camera";
+import { LoopMode } from "../Common/JSYSTEM/J3D/J3DLoader";
+import { JKRArchive } from "../Common/JSYSTEM/JKRArchive";
+import { BTI, BTIData } from "../Common/JSYSTEM/JUTTexture";
 import { NormalizedViewportCoords } from "../gfx/helpers/RenderTargetHelpers";
-import { GravityInfo, GravityTypeMask } from "./Gravity";
-import { validateCollisionParts, CollisionScaleType, invalidateCollisionParts } from "./Collision";
-import { addSleepControlForLiveActor, isExistStageSwitchAppear, SwitchFunctorEventListener, getSwitchWatcherHolder, SwitchCallback, isExistStageSwitchA, isExistStageSwitchB, isExistStageSwitchDead } from "./Switch";
+import { getMatrixAxisY, getMatrixAxisZ, getMatrixTranslation, isNearZero, isNearZeroVec3, MathConstants, normToLength, saturate, scaleMatrix, setMatrixTranslation, Vec3UnitY, Vec3UnitZ, Vec3Zero, setMatrixAxis, getMatrixAxis } from "../MathHelpers";
+import { assertExists } from "../util";
+import { getRes, XanimePlayer } from "./Animation";
 import { AreaObj } from "./AreaObj";
+import { CollisionScaleType, invalidateCollisionParts, validateCollisionParts } from "./Collision";
+import { GravityInfo, GravityTypeMask } from "./Gravity";
+import { HitSensor, HitSensorType } from "./HitSensor";
+import { getJMapInfoScale, JMapInfoIter } from "./JMapInfo";
+import { getJMapInfoRotate, getJMapInfoTrans, LiveActor, makeMtxTRFromActor, MsgSharedGroup } from "./LiveActor";
+import { SceneObj, SceneObjHolder } from "./Main";
+import { CalcAnimType, DrawBufferType, DrawType, MovementType, NameObj } from "./NameObj";
+import { RailDirection } from "./RailRider";
+import { addSleepControlForLiveActor, getSwitchWatcherHolder, isExistStageSwitchA, isExistStageSwitchAppear, isExistStageSwitchB, isExistStageSwitchDead, SwitchCallback, SwitchFunctorEventListener } from "./Switch";
 
 const scratchVec3 = vec3.create();
 const scratchVec3a = vec3.create();
@@ -41,119 +41,122 @@ export function connectToSceneMapObjMovement(sceneObjHolder: SceneObjHolder, nam
 }
 
 export function connectToSceneMapObjNoMovement(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, -1, 0x05, DrawBufferType.MAP_OBJ, -1);
-}
-
-export function connectToSceneNpc(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.NPC, 0x06, DrawBufferType.NPC, -1);
-}
-
-export function connectToSceneIndirectNpc(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.NPC, 0x06, DrawBufferType.INDIRECT_NPC, -1);
-}
-
-export function connectToSceneItem(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Item, 0x10, DrawBufferType.NO_SILHOUETTED_MAP_OBJ, -1);
-}
-
-export function connectToSceneItemStrongLight(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Item, 0x10, DrawBufferType.NO_SILHOUETTED_MAP_OBJ_STRONG_LIGHT, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, -1, CalcAnimType.MapObj, DrawBufferType.MapObj, -1);
 }
 
 export function connectToSceneCollisionMapObjStrongLight(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.CollisionMapObj, 0x02, DrawBufferType.MAP_OBJ_STRONG_LIGHT, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.CollisionMapObj, CalcAnimType.CollisionMapObj, DrawBufferType.MapObjStrongLight, -1);
 }
 
 export function connectToSceneCollisionMapObjWeakLight(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.CollisionMapObj, 0x02, DrawBufferType.MAP_OBJ_WEAK_LIGHT, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.CollisionMapObj, CalcAnimType.CollisionMapObj, DrawBufferType.MapObjWeakLight, -1);
 }
 
 export function connectToSceneCollisionMapObj(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.CollisionMapObj, 0x02, DrawBufferType.MAP_OBJ, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.CollisionMapObj, CalcAnimType.CollisionMapObj, DrawBufferType.MapObj, -1);
 }
 
 export function connectToSceneMapObjNoCalcAnim(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, -1, DrawBufferType.MAP_OBJ, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, -1, DrawBufferType.MapObj, -1);
 }
 
 export function connectToSceneMapObj(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, 0x05, DrawBufferType.MAP_OBJ, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, CalcAnimType.MapObj, DrawBufferType.MapObj, -1);
 }
 
 export function connectToSceneMapObjStrongLight(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, 0x05, DrawBufferType.MAP_OBJ_STRONG_LIGHT, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, CalcAnimType.MapObj, DrawBufferType.MapObjStrongLight, -1);
+}
+
+export function connectToSceneIndirectMapObj(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, CalcAnimType.MapObj, DrawBufferType.IndirectMapObj, -1);
 }
 
 export function connectToSceneIndirectMapObjStrongLight(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, 0x05, DrawBufferType.INDIRECT_MAP_OBJ_STRONG_LIGHT, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, CalcAnimType.MapObj, DrawBufferType.IndirectMapObjStrongLight, -1);
 }
 
 export function connectToSceneNoSilhouettedMapObj(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, 0x05, DrawBufferType.NO_SILHOUETTED_MAP_OBJ, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, CalcAnimType.MapObj, DrawBufferType.NoSilhouettedMapObj, -1);
 }
 
 export function connectToSceneNoSilhouettedMapObjStrongLight(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, 0x05, DrawBufferType.NO_SILHOUETTED_MAP_OBJ_STRONG_LIGHT, -1);
-}
-
-export function connectToSceneMapObjDecoration(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObjDecoration, 0x0B, DrawBufferType.MAP_OBJ, -1);
-}
-
-export function connectToSceneMapObjDecorationStrongLight(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObjDecoration, 0x0B, DrawBufferType.MAP_OBJ_STRONG_LIGHT, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, CalcAnimType.MapObj, DrawBufferType.NoSilhouettedMapObjStrongLight, -1);
 }
 
 export function connectToSceneNoSilhouettedMapObjWeakLightNoMovement(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, -1, 0x05, DrawBufferType.NO_SILHOUETTED_MAP_OBJ_WEAK_LIGHT, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, -1, CalcAnimType.MapObj, DrawBufferType.NoSilhouettedMapObjWeakLight, -1);
 }
 
 export function connectToSceneNoShadowedMapObj(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, 0x05, DrawBufferType.NO_SHADOWED_MAP_OBJ, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, CalcAnimType.MapObj, DrawBufferType.NoShadowedMapObj, -1);
 }
 
 export function connectToSceneNoShadowedMapObjStrongLight(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, 0x05, DrawBufferType.NO_SHADOWED_MAP_OBJ_STRONG_LIGHT, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, CalcAnimType.MapObj, DrawBufferType.NoShadowedMapObjStrongLight, -1);
+}
+
+export function connectToSceneMapObjDecoration(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObjDecoration, CalcAnimType.MapObjDecoration, DrawBufferType.MapObj, -1);
+}
+
+export function connectToSceneMapObjDecorationStrongLight(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObjDecoration, CalcAnimType.MapObjDecoration, DrawBufferType.MapObjStrongLight, -1);
+}
+
+export function connectToSceneNpc(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Npc, CalcAnimType.Npc, DrawBufferType.Npc, -1);
+}
+
+export function connectToSceneIndirectNpc(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Npc, CalcAnimType.Npc, DrawBufferType.IndirectNpc, -1);
+}
+
+export function connectToSceneItem(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Item, CalcAnimType.Item, DrawBufferType.NoSilhouettedMapObj, -1);
+}
+
+export function connectToSceneItemStrongLight(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Item, CalcAnimType.Item, DrawBufferType.NoSilhouettedMapObjStrongLight, -1);
 }
 
 export function connectToSceneCrystal(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, 0x05, DrawBufferType.CRYSTAL, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, CalcAnimType.MapObj, DrawBufferType.Crystal, -1);
 }
 
 export function connectToSceneSun(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Sky, 0x05, DrawBufferType.SUN, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Sky, CalcAnimType.MapObj, DrawBufferType.Sun, -1);
 }
 
 export function connectToSceneSky(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Sky, 0x05, DrawBufferType.SKY, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Sky, CalcAnimType.MapObj, DrawBufferType.Sky, -1);
 }
 
 export function connectToSceneAir(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Sky, 0x05, DrawBufferType.AIR, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Sky, CalcAnimType.MapObj, DrawBufferType.Air, -1);
 }
 
 export function connectToSceneBloom(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    // TODO(jstpierre): Verify
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, 0x05, DrawBufferType.BLOOM_MODEL, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.MapObj, CalcAnimType.MapObj, DrawBufferType.BloomModel, -1);
 }
 
 export function connectToScenePlanet(sceneObjHolder: SceneObjHolder, actor: LiveActor): void {
     if (isExistIndirectTexture(actor))
-        sceneObjHolder.sceneNameObjListExecutor.registerActor(actor, MovementType.Planet, 0x01, DrawBufferType.INDIRECT_PLANET, -1);
+        sceneObjHolder.sceneNameObjListExecutor.registerActor(actor, MovementType.Planet, CalcAnimType.Planet, DrawBufferType.IndirectPlanet, -1);
     else 
-        sceneObjHolder.sceneNameObjListExecutor.registerActor(actor, MovementType.Planet, 0x01, DrawBufferType.PLANET, -1);
+        sceneObjHolder.sceneNameObjListExecutor.registerActor(actor, MovementType.Planet, CalcAnimType.Planet, DrawBufferType.Planet, -1);
 }
 
 export function connectToSceneEnvironment(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Environment, 0x04, DrawBufferType.ENVIRONMENT, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Environment, CalcAnimType.Environment, DrawBufferType.Environment, -1);
 }
 
 export function connectToSceneEnvironmentStrongLight(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Environment, 0x04, DrawBufferType.ENVIRONMENT_STRONG_LIGHT, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Environment, CalcAnimType.Environment, DrawBufferType.EnvironmentStrongLight, -1);
 }
 
 export function connectToSceneEnemy(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Enemy, 0x08, DrawBufferType.ENEMY, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Enemy, CalcAnimType.Enemy, DrawBufferType.Enemy, -1);
 }
 
 export function connectToSceneEnemyMovement(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
@@ -161,15 +164,15 @@ export function connectToSceneEnemyMovement(sceneObjHolder: SceneObjHolder, name
 }
 
 export function connectToSceneIndirectEnemy(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Enemy, 0x08, DrawBufferType.INDIRECT_ENEMY, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Enemy, CalcAnimType.Enemy, DrawBufferType.IndirectEnemy, -1);
 }
 
 export function connectToSceneCollisionEnemyStrongLight(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.CollisionEnemy, 0x03, DrawBufferType.MAP_OBJ_STRONG_LIGHT, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.CollisionEnemy, CalcAnimType.CollisionEnemy, DrawBufferType.MapObjStrongLight, -1);
 }
 
 export function connectToSceneCollisionEnemyNoShadowedMapObjStrongLight(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.CollisionEnemy, 0x03, DrawBufferType.NO_SHADOWED_MAP_OBJ_STRONG_LIGHT, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.CollisionEnemy, CalcAnimType.CollisionEnemy, DrawBufferType.NoShadowedMapObjStrongLight, -1);
 }
 
 export function connectToSceneScreenEffectMovement(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
@@ -177,7 +180,7 @@ export function connectToSceneScreenEffectMovement(sceneObjHolder: SceneObjHolde
 }
 
 export function connectToScene3DModelFor2D(sceneObjHolder: SceneObjHolder, nameObj: NameObj): void {
-    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Model3DFor2D, 0x0D, DrawBufferType._3D_MODEL_FOR_2D, -1);
+    sceneObjHolder.sceneNameObjListExecutor.registerActor(nameObj, MovementType.Model3DFor2D, CalcAnimType.Model3DFor2D, DrawBufferType.Model3DFor2D, -1);
 }
 
 export function getJointMtx(actor: LiveActor, i: number): mat4 {
@@ -204,9 +207,17 @@ export function getBckFrameMax(actor: LiveActor): number {
     return bckCtrl.endFrame;
 }
 
+export function isBrkStopped(actor: LiveActor): boolean {
+    return actor.modelManager!.isBckStopped();
+}
+
 export function getBrkFrameMax(actor: LiveActor): number {
     const brkCtrl = actor.modelManager!.getBrkCtrl();
     return brkCtrl.endFrame;
+}
+
+export function isBtpStopped(actor: LiveActor): boolean {
+    return actor.modelManager!.isBtpStopped();
 }
 
 // TODO(jstpierre): Remove.
@@ -386,6 +397,11 @@ export function setBtkFrameAndStop(actor: LiveActor, frame: number): void {
     ctrl.speedInFrames = 0.0;
 }
 
+export function setBtkFrameAtRandom(actor: LiveActor): void {
+    const ctrl = actor.modelManager!.getBtkCtrl();
+    ctrl.currentTimeInFrames = getRandomFloat(0, ctrl.endFrame);
+}
+
 export function setBrkRate(actor: LiveActor, rate: number): void {
     const ctrl = actor.modelManager!.getBrkCtrl();
     ctrl.speedInFrames = rate;
@@ -509,31 +525,34 @@ export function getRandomInt(min: number, max: number): number {
     return getRandomFloat(min, max) | 0;
 }
 
+export function addHitSensor(sceneObjHolder: SceneObjHolder, actor: LiveActor, name: string, hitSensorType: HitSensorType, pairwiseCapacity: number, radius: number, offset: ReadonlyVec3): void {
+    actor.hitSensorKeeper!.add(sceneObjHolder, name, hitSensorType, pairwiseCapacity, radius, actor, offset);
+}
+
 export function addBodyMessageSensorMapObj(sceneObjHolder: SceneObjHolder, actor: LiveActor): void {
     actor.hitSensorKeeper!.add(sceneObjHolder, `body`, HitSensorType.MapObj, 0, 0.0, actor, Vec3Zero);
 }
 
-export function addHitSensorMapObj(sceneObjHolder: SceneObjHolder, actor: LiveActor, name: string, pairwiseCapacity: number, radius: number, offset: vec3): void {
+export function addHitSensorMapObj(sceneObjHolder: SceneObjHolder, actor: LiveActor, name: string, pairwiseCapacity: number, radius: number, offset: ReadonlyVec3): void {
     actor.hitSensorKeeper!.add(sceneObjHolder, name, HitSensorType.Npc, pairwiseCapacity, radius, actor, offset);
 }
 
-export function addHitSensorNpc(sceneObjHolder: SceneObjHolder, actor: LiveActor, name: string, pairwiseCapacity: number, radius: number, offset: vec3): void {
+export function addHitSensorNpc(sceneObjHolder: SceneObjHolder, actor: LiveActor, name: string, pairwiseCapacity: number, radius: number, offset: ReadonlyVec3): void {
     actor.hitSensorKeeper!.add(sceneObjHolder, name, HitSensorType.Npc, pairwiseCapacity, radius, actor, offset);
 }
 
-export function receiveMessage(sceneObjHolder: SceneObjHolder, thisSensor: HitSensor, messageType: MessageType, otherSensor: HitSensor): boolean {
-    return thisSensor.actor.receiveMessage(sceneObjHolder, messageType, thisSensor, otherSensor);
+export function invalidateHitSensors(actor: LiveActor): void {
+    actor.hitSensorKeeper!.invalidate();
 }
 
-export function sendArbitraryMsg(sceneObjHolder: SceneObjHolder, messageType: MessageType, otherSensor: HitSensor, thisSensor: HitSensor): boolean {
-    return receiveMessage(sceneObjHolder, otherSensor, messageType, thisSensor);
+export function validateHitSensors(actor: LiveActor): void {
+    actor.hitSensorKeeper!.validate();
 }
 
 function calcCollisionMtx(dst: mat4, actor: LiveActor): void {
     mat4.copy(dst, assertExists(actor.getBaseMtx()));
     const scaleX = actor.scale[0];
-    vec3.set(scratchVec3, scaleX, scaleX, scaleX);
-    mat4.scale(dst, dst, scratchVec3);
+    scaleMatrix(dst, dst, scaleX);
 }
 
 export function resetAllCollisionMtx(actor: LiveActor): void {
@@ -558,7 +577,7 @@ export function invalidateCollisionPartsForActor(sceneObjHolder: SceneObjHolder,
     invalidateCollisionParts(sceneObjHolder, parts);
 }
 
-export function initCollisionParts(sceneObjHolder: SceneObjHolder, actor: LiveActor, name: string, hitSensor: HitSensor, hostMtx: mat4 | null) {
+export function initCollisionParts(sceneObjHolder: SceneObjHolder, actor: LiveActor, name: string, hitSensor: HitSensor, hostMtx: mat4 | null = null) {
     actor.initActorCollisionParts(sceneObjHolder, name, hitSensor, null, hostMtx, CollisionScaleType.AutoScale);
 }
 
@@ -771,12 +790,7 @@ export function calcDistanceToCurrentAndNextRailPoint(dst: vec2, actor: LiveActo
 }
 
 export function calcMtxAxis(axisX: vec3 | null, axisY: vec3 | null, axisZ: vec3 | null, m: mat4): void {
-    if (axisX !== null)
-        vec3.set(axisX, m[0], m[1], m[2]);
-    if (axisY !== null)
-        vec3.set(axisY, m[4], m[5], m[6]);
-    if (axisZ !== null)
-        vec3.set(axisZ, m[8], m[9], m[10]);
+    getMatrixAxis(axisX, axisY, axisZ, m);
 }
 
 export function calcDistanceVertical(actor: LiveActor, other: vec3): number {
@@ -787,7 +801,7 @@ export function calcDistanceVertical(actor: LiveActor, other: vec3): number {
 }
 
 export function isValidDraw(actor: LiveActor): boolean {
-    return actor.visibleAlive && actor.visibleScenario;
+    return actor.visibleAlive && actor.visibleScenario && actor.visibleModel;
 }
 
 export function loadTexProjectionMtx(m: mat4, camera: Camera, viewport: NormalizedViewportCoords): void {
@@ -806,14 +820,14 @@ export function setTextureMatrixST(m: mat4, scale: number, v: vec2 | null): void
     }
 }
 
-function calcGravityVectorOrZero(sceneObjHolder: SceneObjHolder, nameObj: NameObj, coord: vec3, gravityTypeMask: GravityTypeMask, dst: vec3, gravityInfo: GravityInfo | null = null, attachmentFilter: any = null): void {
+export function calcGravityVectorOrZero(sceneObjHolder: SceneObjHolder, nameObj: NameObj, pos: ReadonlyVec3, gravityTypeMask: GravityTypeMask, dst: vec3, gravityInfo: GravityInfo | null = null, attachmentFilter: any = null): boolean {
     if (attachmentFilter === null)
         attachmentFilter = nameObj;
 
-    sceneObjHolder.planetGravityManager!.calcTotalGravityVector(dst, gravityInfo, coord, gravityTypeMask, attachmentFilter);
+    return sceneObjHolder.planetGravityManager!.calcTotalGravityVector(dst, gravityInfo, pos, gravityTypeMask, attachmentFilter);
 }
 
-export function calcGravityVector(sceneObjHolder: SceneObjHolder, nameObj: NameObj, coord: vec3, dst: vec3, gravityInfo: GravityInfo | null = null, attachmentFilter: any = null): void {
+export function calcGravityVector(sceneObjHolder: SceneObjHolder, nameObj: NameObj, coord: ReadonlyVec3, dst: vec3, gravityInfo: GravityInfo | null = null, attachmentFilter: any = null): void {
     // Can't import GravityTypeMask without circular dependencies... TODO(jstpierre): Change this.
     const GravityTypeMask_Normal = 0x01;
     calcGravityVectorOrZero(sceneObjHolder, nameObj, coord, GravityTypeMask_Normal, dst, gravityInfo, attachmentFilter);
@@ -825,29 +839,18 @@ export function calcGravity(sceneObjHolder: SceneObjHolder, actor: LiveActor): v
         vec3.copy(actor.gravityVector, scratchVec3);
 }
 
-export function makeMtxTRFromQuatVec(dst: mat4, q: quat, translation: vec3): void {
+export function makeMtxTRFromQuatVec(dst: mat4, q: ReadonlyQuat, translation: ReadonlyVec3): void {
     mat4.fromQuat(dst, q);
     dst[12] = translation[0];
     dst[13] = translation[1];
     dst[14] = translation[2];
 }
 
-export function setMtxAxisXYZ(dst: mat4, x: vec3, y: vec3, z: vec3): void {
-    dst[0] = x[0];
-    dst[1] = x[1];
-    dst[2] = x[2];
-    dst[3] = 0.0;
-    dst[4] = y[0];
-    dst[5] = y[1];
-    dst[6] = y[2];
-    dst[7] = 0.0;
-    dst[8] = z[0];
-    dst[9] = z[1];
-    dst[10] = z[2];
-    dst[11] = 0.0;
+export function setMtxAxisXYZ(dst: mat4, x: ReadonlyVec3, y: ReadonlyVec3, z: ReadonlyVec3): void {
+    setMatrixAxis(dst, x, y, z);
 }
 
-export function makeMtxFrontUpPos(dst: mat4, front: vec3, up: vec3, pos: vec3): void {
+export function makeMtxFrontUp(dst: mat4, front: ReadonlyVec3, up: ReadonlyVec3): void {
     const frontNorm = scratchVec3a;
     const upNorm = scratchVec3b;
     const right = scratchVec3c;
@@ -856,10 +859,14 @@ export function makeMtxFrontUpPos(dst: mat4, front: vec3, up: vec3, pos: vec3): 
     vec3.normalize(right, right);
     vec3.cross(upNorm, frontNorm, right);
     setMtxAxisXYZ(dst, right, upNorm, frontNorm);
+}
+
+export function makeMtxFrontUpPos(dst: mat4, front: ReadonlyVec3, up: ReadonlyVec3, pos: ReadonlyVec3): void {
+    makeMtxFrontUp(dst, front, up);
     setMatrixTranslation(dst, pos);
 }
 
-export function makeMtxUpFront(dst: mat4, up: vec3, front: vec3): void {
+export function makeMtxUpFront(dst: mat4, up: ReadonlyVec3, front: ReadonlyVec3): void {
     const upNorm = scratchVec3b;
     const frontNorm = scratchVec3a;
     const right = scratchVec3c;
@@ -870,18 +877,18 @@ export function makeMtxUpFront(dst: mat4, up: vec3, front: vec3): void {
     setMtxAxisXYZ(dst, right, upNorm, frontNorm);
 }
 
-export function makeMtxUpFrontPos(dst: mat4, up: vec3, front: vec3, pos: vec3): void {
+export function makeMtxUpFrontPos(dst: mat4, up: ReadonlyVec3, front: ReadonlyVec3, pos: ReadonlyVec3): void {
     makeMtxUpFront(dst, up, front);
     setMatrixTranslation(dst, pos);
 }
 
-export function makeQuatUpFront(dst: quat, up: vec3, front: vec3): void {
+export function makeQuatUpFront(dst: quat, up: ReadonlyVec3, front: ReadonlyVec3): void {
     makeMtxUpFrontPos(scratchMatrix, up, front, Vec3Zero);
     mat4.getRotation(dst, scratchMatrix);
     quat.normalize(dst, dst);
 }
 
-export function quatSetRotate(q: quat, v0: vec3, v1: vec3, t: number = 1.0, scratch = scratchVec3): void {
+export function quatSetRotate(q: quat, v0: ReadonlyVec3, v1: ReadonlyVec3, t: number = 1.0, scratch = scratchVec3): void {
     // v0 and v1 are normalized.
 
     // TODO(jstpierre): There's probably a better way to do this that doesn't involve an atan2.
@@ -896,28 +903,28 @@ export function quatSetRotate(q: quat, v0: vec3, v1: vec3, t: number = 1.0, scra
     }
 }
 
-export function quatGetAxisX(dst: vec3, q: quat): void {
+export function quatGetAxisX(dst: vec3, q: ReadonlyQuat): void {
     const x = q[0], y = q[1], z = q[2], w = q[3];
     dst[0] = (1.0 - 2.0 * y * y) - 2.0 * z * z;
     dst[1] = 2.0 * x * y + 2.0 * w * z;
     dst[2] = 2.0 * x * z - 2.0 * w * y;
 }
 
-export function quatGetAxisY(dst: vec3, q: quat): void {
+export function quatGetAxisY(dst: vec3, q: ReadonlyQuat): void {
     const x = q[0], y = q[1], z = q[2], w = q[3];
     dst[0] = 2.0 * x * y - 2.0 * w * z;
     dst[1] = (1.0 - 2.0 * x * x) - 2.0 * z * z;
     dst[2] = 2.0 * y * z + 2.0 * w * x;
 }
 
-export function quatGetAxisZ(dst: vec3, q: quat): void {
+export function quatGetAxisZ(dst: vec3, q: ReadonlyQuat): void {
     const x = q[0], y = q[1], z = q[2], w = q[3];
     dst[0] = 2.0 * x * z + 2.0 * w * y;
     dst[1] = 2.0 * y * z - 2.0 * x * w;
     dst[2] = (1.0 - 2.0 * x * x) - 2.0 * y * y;
 }
 
-export function isSameDirection(v0: vec3, v1: vec3, ep: number): boolean {
+export function isSameDirection(v0: ReadonlyVec3, v1: ReadonlyVec3, ep: number): boolean {
     if (Math.abs(v0[1] * v1[2] - v0[2] * v1[1]) > ep)
         return false;
     if (Math.abs(v0[2] * v1[0] - v0[0] * v1[2]) > ep)
@@ -927,13 +934,13 @@ export function isSameDirection(v0: vec3, v1: vec3, ep: number): boolean {
     return true;
 }
 
-export function addRandomVector(dst: vec3, src: vec3, mag: number): void {
+export function addRandomVector(dst: vec3, src: ReadonlyVec3, mag: number): void {
     dst[0] = src[0] + getRandomFloat(-mag, mag);
     dst[1] = src[1] + getRandomFloat(-mag, mag);
     dst[2] = src[2] + getRandomFloat(-mag, mag);
 }
 
-export function turnRandomVector(dst: vec3, src: vec3, mag: number): void {
+export function turnRandomVector(dst: vec3, src: ReadonlyVec3, mag: number): void {
     if (isNearZero(vec3.length(src), 0.001)) {
         vec3.copy(dst, src);
     } else {
@@ -942,7 +949,7 @@ export function turnRandomVector(dst: vec3, src: vec3, mag: number): void {
     }
 }
 
-export function blendQuatUpFront(dst: quat, q: quat, up: vec3, front: vec3, speedUp: number, speedFront: number): void {
+export function blendQuatUpFront(dst: quat, q: ReadonlyQuat, up: ReadonlyVec3, front: ReadonlyVec3, speedUp: number, speedFront: number): void {
     const axisY = scratchVec3a;
     const axisZ = scratchVec3b;
     const scratch = scratchVec3;
@@ -966,7 +973,7 @@ export function blendQuatUpFront(dst: quat, q: quat, up: vec3, front: vec3, spee
     quat.normalize(dst, dst);
 }
 
-export function turnQuat(dst: quat, q: quat, v0: vec3, v1: vec3, rad: number): void {
+export function turnQuat(dst: quat, q: ReadonlyQuat, v0: ReadonlyVec3, v1: ReadonlyVec3, rad: number): void {
     if (vec3.dot(v0, v1) < 0.0 && isSameDirection(v0, v1, 0.01)) {
         turnRandomVector(scratchVec3a, v0, 0.001);
         vec3.normalize(scratchVec3a, scratchVec3a);
@@ -987,13 +994,13 @@ export function turnQuat(dst: quat, q: quat, v0: vec3, v1: vec3, rad: number): v
     quat.normalize(dst, dst);
 }
 
-export function turnQuatYDirRad(dst: quat, q: quat, v: vec3, rad: number): void {
+export function turnQuatYDirRad(dst: quat, q: ReadonlyQuat, v: ReadonlyVec3, rad: number): void {
     quatGetAxisY(scratchVec3, q);
     turnQuat(dst, q, scratchVec3, v, rad);
 }
 
 // Project pos onto the line created by p0...p1.
-export function calcPerpendicFootToLine(dst: vec3, pos: vec3, p0: vec3, p1: vec3, scratch = scratchVec3): number {
+export function calcPerpendicFootToLine(dst: vec3, pos: ReadonlyVec3, p0: ReadonlyVec3, p1: ReadonlyVec3, scratch = scratchVec3): number {
     vec3.sub(scratch, p1, p0);
     const proj = vec3.dot(scratch, pos) - vec3.dot(scratch, p0);
     const coord = proj / vec3.squaredLength(scratch);
@@ -1002,7 +1009,7 @@ export function calcPerpendicFootToLine(dst: vec3, pos: vec3, p0: vec3, p1: vec3
 }
 
 // Project pos onto the line created by p0...p1, clamped to the inside of the line.
-export function calcPerpendicFootToLineInside(dst: vec3, pos: vec3, p0: vec3, p1: vec3, scratch = scratchVec3): number {
+export function calcPerpendicFootToLineInside(dst: vec3, pos: ReadonlyVec3, p0: ReadonlyVec3, p1: ReadonlyVec3, scratch = scratchVec3): number {
     vec3.sub(scratch, p1, p0);
     const proj = vec3.dot(scratch, pos) - vec3.dot(scratch, p0);
     const coord = saturate(proj / vec3.squaredLength(scratch));
@@ -1010,7 +1017,7 @@ export function calcPerpendicFootToLineInside(dst: vec3, pos: vec3, p0: vec3, p1
     return coord;
 }
 
-export function vecKillElement(dst: vec3, a: vec3, b: vec3): number {
+export function vecKillElement(dst: vec3, a: ReadonlyVec3, b: ReadonlyVec3): number {
     const m = vec3.dot(a, b);
     dst[0] = a[0] - b[0]*m;
     dst[1] = a[1] - b[1]*m;
@@ -1018,7 +1025,7 @@ export function vecKillElement(dst: vec3, a: vec3, b: vec3): number {
     return m;
 }
 
-function getMaxAbsElementIndex(v: vec3): number {
+function getMaxAbsElementIndex(v: ReadonlyVec3): number {
     const x = Math.abs(v[0]);
     const y = Math.abs(v[1]);
     const z = Math.abs(v[2]);
@@ -1030,10 +1037,26 @@ function getMaxAbsElementIndex(v: vec3): number {
         return 2;
 }
 
-export function makeMtxUpNoSupportPos(dst: mat4, up: vec3, pos: vec3): void {
+export function makeMtxUpNoSupport(dst: mat4, up: ReadonlyVec3): void {
     const max = getMaxAbsElementIndex(up);
     const front = (max === 2) ? Vec3UnitY : Vec3UnitZ;
-    makeMtxUpFrontPos(dst, up, front, pos);
+    makeMtxUpFront(dst, up, front);
+}
+
+export function makeMtxUpNoSupportPos(dst: mat4, up: ReadonlyVec3, pos: ReadonlyVec3): void {
+    makeMtxUpNoSupport(dst, up);
+    setMatrixTranslation(dst, pos);
+}
+
+export function makeMtxFrontNoSupport(dst: mat4, front: ReadonlyVec3): void {
+    const max = getMaxAbsElementIndex(front);
+    const up = (max === 0) ? Vec3UnitY : Vec3UnitY;
+    makeMtxFrontUp(dst, front, up);
+}
+
+export function makeMtxFrontNoSupportPos(dst: mat4, front: ReadonlyVec3, pos: ReadonlyVec3): void {
+    makeMtxFrontNoSupport(dst, front);
+    setMatrixTranslation(dst, pos);
 }
 
 export function isExistCollisionResource(actor: LiveActor, name: string): boolean {
@@ -1150,18 +1173,18 @@ export function isOnSwitchAppear(sceneObjHolder: SceneObjHolder, actor: LiveActo
     return actor.stageSwitchCtrl !== null && actor.stageSwitchCtrl.isOnSwitchAppear(sceneObjHolder);
 }
 
-export function getAreaObj<T extends AreaObj = AreaObj>(sceneObjHolder: SceneObjHolder, managerName: string, pos: vec3): T | null {
+export function getAreaObj<T extends AreaObj = AreaObj>(sceneObjHolder: SceneObjHolder, managerName: string, pos: ReadonlyVec3): T | null {
     if (sceneObjHolder.areaObjContainer === null)
         return null;
     return sceneObjHolder.areaObjContainer.getAreaObj(managerName, pos);
 }
 
-export function getCamPos(v: vec3, camera: Camera): void {
-    getMatrixTranslation(v, camera.worldMatrix);
+export function getCamPos(dst: vec3, camera: Camera): void {
+    getMatrixTranslation(dst, camera.worldMatrix);
 }
 
-export function getPlayerPos(v: vec3, sceneObjHolder: SceneObjHolder): void {
-    getMatrixTranslation(v, sceneObjHolder.viewerInput.camera.worldMatrix);
+export function getPlayerPos(dst: vec3, sceneObjHolder: SceneObjHolder): void {
+    getMatrixTranslation(dst, sceneObjHolder.viewerInput.camera.worldMatrix);
 }
 
 export function hideModel(actor: LiveActor): void {
@@ -1179,4 +1202,123 @@ export function isHiddenModel(actor: LiveActor): boolean {
 export function joinToGroupArray<T extends LiveActor>(sceneObjHolder: SceneObjHolder, actor: T, infoIter: JMapInfoIter, groupName: string | null, maxCount: number): MsgSharedGroup<T> | null {
     sceneObjHolder.create(SceneObj.LiveActorGroupArray);
     return sceneObjHolder.liveActorGroupArray!.entry(sceneObjHolder, actor, infoIter, groupName, maxCount);
+}
+
+function getGroundNormal(actor: LiveActor): vec3 {
+    return actor.binder!.floorHitInfo.faceNormal;
+}
+
+function isOnGround(actor: LiveActor): boolean {
+    if (actor.binder === null)
+        return false;
+
+    if (actor.binder.floorHitInfo.distance < 0.0)
+        return false;
+
+    return vec3.dot(actor.binder.floorHitInfo.faceNormal, actor.velocity) < 0.0;
+}
+
+function calcVelocityMoveToDirectionHorizon(dst: vec3, actor: LiveActor, direction: vec3, speed: number): void {
+    vecKillElement(dst, direction, actor.gravityVector);
+    normToLength(dst, speed);
+}
+
+export function calcVelocityMoveToDirection(dst: vec3, actor: LiveActor, direction: vec3, speed: number): void {
+    calcVelocityMoveToDirectionHorizon(dst, actor, direction, speed);
+    if (isOnGround(actor))
+        vecKillElement(dst, dst, getGroundNormal(actor));
+}
+
+export function addVelocityMoveToDirection(actor: LiveActor, direction: vec3, speed: number): void {
+    calcVelocityMoveToDirection(scratchVec3, actor, direction, speed);
+    vec3.add(actor.velocity, actor.velocity, scratchVec3);
+}
+
+function calcMomentRollBall(dst: vec3, fwd: vec3, up: vec3, radius: number): void {
+    vec3.normalize(dst, up);
+    vec3.cross(dst, dst, fwd);
+    vec3.scale(dst, dst, 1.0 / radius);
+}
+
+export function rotateQuatRollBall(dst: quat, fwd: vec3, up: vec3, radius: number): void {
+    calcMomentRollBall(scratchVec3, fwd, up, radius);
+    const rollAmount = vec3.length(scratchVec3);
+    vec3.normalize(scratchVec3, scratchVec3);
+    quat.setAxisAngle(scratchQuat, scratchVec3, rollAmount);
+    quat.mul(dst, scratchQuat, dst);
+}
+
+export function hideMaterial(actor: LiveActor, materialName: string): void {
+    const materialInstance = assertExists(actor.modelInstance!.materialInstances.find((m) => m.materialData.material.name === materialName));
+    materialInstance.visible = false;
+}
+
+export function calcActorAxis(axisX: vec3 | null, axisY: vec3 | null, axisZ: vec3 | null, actor: LiveActor): void {
+    const m = scratchMatrix;
+    makeMtxTRFromActor(m, actor);
+    calcMtxAxis(axisX, axisY, axisZ, m);
+}
+
+export function calcUpVec(v: vec3, actor: LiveActor): void {
+    getMatrixAxisY(v, assertExists(actor.getBaseMtx()));
+}
+
+export function calcFrontVec(v: vec3, actor: LiveActor): void {
+    getMatrixAxisZ(v, assertExists(actor.getBaseMtx()));
+}
+
+export function calcMtxFromGravityAndZAxis(dst: mat4, actor: LiveActor, gravityVec: vec3, front: vec3): void {
+    vec3.negate(scratchVec3b, gravityVec);
+    makeMtxUpFrontPos(dst, scratchVec3b, front, actor.translation);
+}
+
+export function getCamYdir(v: vec3, camera: Camera): void {
+    getMatrixAxisY(v, camera.worldMatrix);
+}
+
+export function getCamZdir(v: vec3, camera: Camera): void {
+    getMatrixAxisZ(v, camera.worldMatrix);
+    vec3.negate(v, v);
+}
+
+export function calcDistToCamera(actor: LiveActor, camera: Camera, scratch: vec3 = scratchVec3): number {
+    getCamPos(scratch, camera);
+    return vec3.distance(actor.translation, scratch);
+}
+
+export function calcSqDistanceToPlayer(actor: LiveActor, camera: Camera, scratch: vec3 = scratchVec3): number {
+    getCamPos(scratch, camera);
+    return vec3.squaredDistance(actor.translation, scratch);
+}
+
+export function calcDistanceToPlayer(actor: LiveActor, camera: Camera, scratch: vec3 = scratchVec3): number {
+    return calcDistToCamera(actor, camera, scratch);
+}
+
+export function isNearPlayer(sceneObjHolder: SceneObjHolder, actor: LiveActor, radius: number): boolean {
+    return calcDistanceToPlayer(actor, sceneObjHolder.viewerInput.camera) <= radius;
+}
+
+export function getJointNum(actor: LiveActor): number {
+    return actor.modelInstance!.shapeInstanceState.jointToWorldMatrixArray.length;
+}
+
+export function getRandomVector(dst: vec3, range: number): void {
+    vec3.set(dst, getRandomFloat(-range, range), getRandomFloat(-range, range), getRandomFloat(-range, range));
+}
+
+export function rotateVecDegree(dst: vec3, upVec: vec3, degrees: number, m: mat4 = scratchMatrix): void {
+    const theta = degrees * MathConstants.DEG_TO_RAD;
+    mat4.fromRotation(m, theta, upVec);
+    vec3.transformMat4(dst, dst, m);
+}
+
+export function invalidateShadowAll(actor: LiveActor): void {
+    for (let i = 0; i < actor.shadowControllerList!.shadowControllers.length; i++)
+        actor.shadowControllerList!.shadowControllers[i].invalidate();
+}
+
+export function validateShadowAll(actor: LiveActor): void {
+    for (let i = 0; i < actor.shadowControllerList!.shadowControllers.length; i++)
+        actor.shadowControllerList!.shadowControllers[i].validate();
 }

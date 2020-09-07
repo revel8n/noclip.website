@@ -2,8 +2,8 @@
 
 import { AABB } from "./Geometry";
 import { Color, Magenta, colorToCSS, Red, Green, Blue } from "./Color";
-import { Camera, divideByW, ScreenSpaceProjection } from "./Camera";
-import { vec4, vec3, mat4 } from "gl-matrix";
+import { divideByW, ScreenSpaceProjection } from "./Camera";
+import { vec4, vec3, mat4, ReadonlyMat4, ReadonlyVec3 } from "gl-matrix";
 import { nArray, assert, assertExists, hexdump, magicstr } from "./util";
 import { UI, Slider } from "./ui";
 import { getMatrixTranslation, getMatrixAxisX, getMatrixAxisY, getMatrixAxisZ } from "./MathHelpers";
@@ -159,9 +159,9 @@ export function prepareFrameDebugOverlayCanvas2D(): void {
 
 const p = nArray(8, () => vec4.create());
 
-function transformToClipSpace(ctx: CanvasRenderingContext2D, camera: Camera, nPoints: number): void {
+function transformToClipSpace(ctx: CanvasRenderingContext2D, m: ReadonlyMat4, nPoints: number): void {
     for (let i = 0; i < nPoints; i++) {
-        vec4.transformMat4(p[i], p[i], camera.clipFromWorldMatrix);
+        vec4.transformMat4(p[i], p[i], m);
         divideByW(p[i], p[i]);
     }
 }
@@ -178,10 +178,10 @@ function drawLine(ctx: CanvasRenderingContext2D, p0: vec4, p1: vec4): void {
     ctx.lineTo((p1[0] + 1) * cw / 2, ((-p1[1] + 1) * ch / 2));
 }
 
-export function drawWorldSpaceLine(ctx: CanvasRenderingContext2D, camera: Camera, v0: vec3, v1: vec3, color: Color = Magenta, thickness = 2): void {
+export function drawWorldSpaceLine(ctx: CanvasRenderingContext2D, clipFromWorldMatrix: ReadonlyMat4, v0: ReadonlyVec3, v1: ReadonlyVec3, color: Color = Magenta, thickness = 2): void {
     vec4.set(p[0], v0[0], v0[1], v0[2], 1.0);
     vec4.set(p[1], v1[0], v1[1], v1[2], 1.0);
-    transformToClipSpace(ctx, camera, 2);
+    transformToClipSpace(ctx, clipFromWorldMatrix, 2);
 
     ctx.beginPath();
     drawLine(ctx, p[0], p[1]);
@@ -193,23 +193,23 @@ export function drawWorldSpaceLine(ctx: CanvasRenderingContext2D, camera: Camera
 
 const scratchVec3a = vec3.create();
 const scratchVec3b = vec3.create();
-export function drawWorldSpaceBasis(ctx: CanvasRenderingContext2D, camera: Camera, m: mat4, mag: number = 100, thickness = 2): void {
+export function drawWorldSpaceBasis(ctx: CanvasRenderingContext2D, clipFromWorldMatrix: ReadonlyMat4, m: ReadonlyMat4, mag: number = 100, thickness = 2): void {
     getMatrixTranslation(scratchVec3a, m);
 
     getMatrixAxisX(scratchVec3b, m);
-    drawWorldSpaceVector(ctx, camera, scratchVec3a, scratchVec3b, mag, Red, thickness);
+    drawWorldSpaceVector(ctx, clipFromWorldMatrix, scratchVec3a, scratchVec3b, mag, Red, thickness);
 
     getMatrixAxisY(scratchVec3b, m);
-    drawWorldSpaceVector(ctx, camera, scratchVec3a, scratchVec3b, mag, Green, thickness);
+    drawWorldSpaceVector(ctx, clipFromWorldMatrix, scratchVec3a, scratchVec3b, mag, Green, thickness);
 
     getMatrixAxisZ(scratchVec3b, m);
-    drawWorldSpaceVector(ctx, camera, scratchVec3a, scratchVec3b, mag, Blue, thickness);
+    drawWorldSpaceVector(ctx, clipFromWorldMatrix, scratchVec3a, scratchVec3b, mag, Blue, thickness);
 }
 
-export function drawWorldSpaceVector(ctx: CanvasRenderingContext2D, camera: Camera, pos: vec3, dir: vec3, mag: number, color: Color = Magenta, thickness = 2): void {
+export function drawWorldSpaceVector(ctx: CanvasRenderingContext2D, clipFromWorldMatrix: ReadonlyMat4, pos: ReadonlyVec3, dir: ReadonlyVec3, mag: number, color: Color = Magenta, thickness = 2): void {
     vec4.set(p[0], pos[0], pos[1], pos[2], 1.0);
     vec4.set(p[1], pos[0] + dir[0] * mag, pos[1] + dir[1] * mag, pos[2] + dir[2] * mag, 1.0);
-    transformToClipSpace(ctx, camera, 2);
+    transformToClipSpace(ctx, clipFromWorldMatrix, 2);
 
     ctx.beginPath();
     drawLine(ctx, p[0], p[1]);
@@ -219,7 +219,7 @@ export function drawWorldSpaceVector(ctx: CanvasRenderingContext2D, camera: Came
     ctx.stroke();
 }
 
-export function drawWorldSpaceAABB(ctx: CanvasRenderingContext2D, camera: Camera, aabb: AABB, m: mat4 | null = null, color: Color = Magenta): void {
+export function drawWorldSpaceAABB(ctx: CanvasRenderingContext2D, clipFromWorldMatrix: ReadonlyMat4, aabb: AABB, m: mat4 | null = null, color: Color = Magenta): void {
     vec4.set(p[0], aabb.minX, aabb.minY, aabb.minZ, 1.0);
     vec4.set(p[1], aabb.maxX, aabb.minY, aabb.minZ, 1.0);
     vec4.set(p[2], aabb.minX, aabb.maxY, aabb.minZ, 1.0);
@@ -231,7 +231,7 @@ export function drawWorldSpaceAABB(ctx: CanvasRenderingContext2D, camera: Camera
     if (m !== null)
         for (let i = 0; i < 8; i++)
             vec4.transformMat4(p[i], p[i], m);
-    transformToClipSpace(ctx, camera, 8);
+    transformToClipSpace(ctx, clipFromWorldMatrix, 8);
 
     ctx.beginPath();
     drawLine(ctx, p[0], p[1]);
@@ -258,11 +258,11 @@ export function drawViewportSpacePoint(ctx: CanvasRenderingContext2D, x: number,
     ctx.fillRect(x - rad, ctx.canvas.height - (y - rad), size, size);
 }
 
-export function drawWorldSpacePoint(ctx: CanvasRenderingContext2D, camera: Camera, v: vec3, color: Color = Magenta, size: number = 4): void {
+export function drawWorldSpacePoint(ctx: CanvasRenderingContext2D, clipFromWorldMatrix: ReadonlyMat4, v: ReadonlyVec3, color: Color = Magenta, size: number = 4): void {
     const cw = ctx.canvas.width;
     const ch = ctx.canvas.height;
     vec4.set(p[0], v[0], v[1], v[2], 1.0);
-    transformToClipSpace(ctx, camera, 1);
+    transformToClipSpace(ctx, clipFromWorldMatrix, 1);
     if (shouldCull(p[0])) return;
 
     const x = (p[0][0] + 1) * cw / 2;
@@ -277,16 +277,7 @@ interface TextOptions {
     outline?: number;
 }
 
-export function drawWorldSpaceText(ctx: CanvasRenderingContext2D, camera: Camera, v: vec3, text: string, offsY: number = 0, color: Color = Magenta, options: TextOptions = {}): void {
-    const cw = ctx.canvas.width;
-    const ch = ctx.canvas.height;
-    vec4.set(p[0], v[0], v[1], v[2], 1.0);
-    transformToClipSpace(ctx, camera, 1);
-    if (shouldCull(p[0])) return;
-
-    const x = ( p[0][0] + 1) * cw / 2;
-    const y = (-p[0][1] + 1) * ch / 2;
-
+export function drawScreenSpaceText(ctx: CanvasRenderingContext2D, x: number, y: number, text: string, color: Color = Magenta, options: TextOptions = {}): void {
     ctx.fillStyle = colorToCSS(color);
     ctx.textBaseline = 'bottom';
     ctx.textAlign = 'start';
@@ -295,15 +286,29 @@ export function drawWorldSpaceText(ctx: CanvasRenderingContext2D, camera: Camera
     if (options.outline) {
         const oldLineWidth = ctx.lineWidth;
         ctx.lineWidth = options.outline;
-        ctx.strokeText(text, x, y + offsY);
+        ctx.strokeStyle = 'black';
+        ctx.strokeText(text, x, y);
         ctx.lineWidth = oldLineWidth;
     }
 
     ctx.shadowColor = options.shadowColor ?? 'black';
     ctx.shadowBlur = options.shadowBlur ?? 0;
-    ctx.fillText(text, x, y + offsY);
+    ctx.fillText(text, x, y);
     ctx.shadowColor = 'black';
     ctx.shadowBlur = 0;
+}
+
+export function drawWorldSpaceText(ctx: CanvasRenderingContext2D, clipFromWorldMatrix: ReadonlyMat4, v: ReadonlyVec3, text: string, offsY: number = 0, color: Color = Magenta, options: TextOptions = {}): void {
+    const cw = ctx.canvas.width;
+    const ch = ctx.canvas.height;
+    vec4.set(p[0], v[0], v[1], v[2], 1.0);
+    transformToClipSpace(ctx, clipFromWorldMatrix, 1);
+    if (shouldCull(p[0])) return;
+
+    const x = ( p[0][0] + 1) * cw / 2;
+    const y = (-p[0][1] + 1) * ch / 2 + offsY;
+
+    drawScreenSpaceText(ctx, x, y, text, color, options);
 }
 
 export function drawScreenSpaceProjection(ctx: CanvasRenderingContext2D, proj: ScreenSpaceProjection, color: Color = Magenta): void {
@@ -432,10 +437,18 @@ function downloadBuffer2(name: any, buffer: any) {
         downloadBuffer(name, buffer);
 }
 
+export function ghidraDecode(s: string, encoding = 'sjis'): string {
+    // @ts-ignore
+    const hex = new Uint8Array([...s.matchAll(/[0-9A-Fa-f]{2}h/g)].map((g) => parseInt(g[0].slice(0, 2), 16)));
+    console.log([...hex].map((g) => g.toString(16)));
+    return new TextDecoder(encoding).decode(hex);
+}
+
 // This goes on window.main and is meant as a global "helper utils" thing.
 export const debugJunk: any = {
     interactiveVizSliderSelect,
     hexdump,
     magicstr,
+    ghidraDecode,
     downloadBuffer: downloadBuffer2,
 };

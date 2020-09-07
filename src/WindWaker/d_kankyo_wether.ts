@@ -18,7 +18,7 @@ import { Camera, divideByW } from "../Camera";
 import { TDDraw } from "../SuperMarioGalaxy/DDraw";
 import * as GX from '../gx/gx_enum';
 import { GXMaterialBuilder } from "../gx/GXMaterialBuilder";
-import { GXMaterialHelperGfx, MaterialParams, PacketParams, ub_PacketParams, ub_PacketParamsBufferSize, fillPacketParamsData, ColorKind, setChanWriteEnabled } from "../gx/gx_render";
+import { GXMaterialHelperGfx, MaterialParams, PacketParams, ColorKind, setChanWriteEnabled } from "../gx/gx_render";
 import { GfxDevice, GfxCompareMode, GfxColorWriteMask } from "../gfx/platform/GfxPlatform";
 import ArrayBufferSlice from "../ArrayBufferSlice";
 import { nArray, assertExists, assert } from "../util";
@@ -141,7 +141,7 @@ function vecPitch(v: vec3): number {
     return Math.atan2(v[1], Math.hypot(v[2], v[0]));
 }
 
-function loadRawTexture(globals: dGlobals, data: ArrayBufferSlice, width: number, height: number, format: GX.TexFormat, wrapS: GX.WrapMode, wrapT: GX.WrapMode, name: string = ''): BTIData {
+export function loadRawTexture(globals: dGlobals, data: ArrayBufferSlice, width: number, height: number, format: GX.TexFormat, wrapS: GX.WrapMode, wrapT: GX.WrapMode, name: string = ''): BTIData {
     const btiTexture: BTI_Texture = {
         name,
         width, height, format, wrapS, wrapT,
@@ -162,11 +162,9 @@ const packetParams = new PacketParams();
 function submitScratchRenderInst(device: GfxDevice, renderInstManager: GfxRenderInstManager, materialHelper: GXMaterialHelperGfx, renderInst: GfxRenderInst, viewerInput: ViewerRenderInput, materialParams_ = materialParams, packetParams_ = packetParams): void {
     materialHelper.setOnRenderInst(device, renderInstManager.gfxRenderCache, renderInst);
     renderInst.setSamplerBindingsFromTextureMappings(materialParams_.m_TextureMapping);
-    const offs = materialHelper.allocateMaterialParams(renderInst);
-    materialHelper.fillMaterialParamsDataOnInst(renderInst, offs, materialParams_);
-    renderInst.allocateUniformBuffer(ub_PacketParams, ub_PacketParamsBufferSize);
+    materialHelper.allocateMaterialParamsDataOnInst(renderInst, materialParams_);
     mat4.copy(packetParams_.u_PosMtx[0], viewerInput.camera.viewMatrix);
-    fillPacketParamsData(renderInst.mapUniformBufferF32(ub_PacketParams), renderInst.getUniformBufferOffset(ub_PacketParams), packetParams_);
+    materialHelper.allocatePacketParamsDataOnInst(renderInst, packetParams_);
     renderInstManager.submitRenderInst(renderInst);
 }
 
@@ -2067,7 +2065,8 @@ function vrkumo_move(globals: dGlobals, deltaTimeInFrames: number): void {
             skyboxY = fili.skyboxY;
         if (globals.stageName === 'Siren' && globals.mStayNo === 17)
             skyboxY = -14101.0;
-        skyboxOffsY -= 0.09 * (globals.cameraPosition[1] - skyboxY);
+        // TODO(jstpierre): Re-enable this?
+        // skyboxOffsY -= 0.09 * (globals.cameraPosition[1] - skyboxY);
     }
 
     for (let i = 0; i < 100; i++) {

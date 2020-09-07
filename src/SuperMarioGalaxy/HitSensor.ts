@@ -1,9 +1,9 @@
 
-import { vec3, mat4 } from "gl-matrix";
-import { LiveActor, isDead } from "./LiveActor";
+import { vec3, mat4, ReadonlyVec3 } from "gl-matrix";
+import { LiveActor, isDead, MessageType } from "./LiveActor";
 import { SceneObjHolder, SceneObj } from "./Main";
 import { connectToScene } from "./ActorUtil";
-import { NameObj } from "./NameObj";
+import { NameObj, MovementType } from "./NameObj";
 import { ViewerRenderInput } from "../viewer";
 import { arrayRemove } from "../util";
 
@@ -13,16 +13,20 @@ function initHitSensorGroup(sceneObjHolder: SceneObjHolder, sensor: HitSensor): 
 }
 
 export const enum HitSensorType {
-    Player = 0x01,
-    Npc    = 0x05,
-    MapObj = 0x46,
+    Player              = 0x01,
+    Npc                 = 0x05,
+    Unizo               = 0x24,
+    MapObj              = 0x46,
+    MapObjMoveCollision = 0x48,
+    WoodBox             = 0x55,
 }
 
 export class HitSensor {
     public center = vec3.create();
     public pairwiseSensors: HitSensor[] = [];
     public group: SensorGroup;
-    public sensorValid: boolean = false;
+    public sensorValidBySystem: boolean = false;
+    public sensorValidByHost: boolean = true;
 
     constructor(sceneObjHolder: SceneObjHolder, public sensorType: HitSensorType, pairwiseCapacity: number, public radius: number, public actor: LiveActor) {
         initHitSensorGroup(sceneObjHolder, this);
@@ -36,18 +40,42 @@ export class HitSensor {
         this.pairwiseSensors.push(other);
     }
 
-    public invalidateBySystem(): void {
-        if (this.sensorValid) {
-            arrayRemove(this.group, this);
-            this.sensorValid = false;
+    public validate(): void {
+        if (!this.sensorValidBySystem) {
+            if (this.sensorValidByHost)
+                this.group.push(this);
+            this.sensorValidBySystem = true;
+        }
+    }
+
+    public invalidate(): void {
+        if (this.sensorValidByHost) {
+            if (this.sensorValidBySystem)
+                arrayRemove(this.group, this);
+            this.sensorValidByHost = false;
+            this.pairwiseSensors.length = 0;
         }
     }
 
     public validateBySystem(): void {
-        if (!this.sensorValid) {
-            this.group.push(this);
-            this.sensorValid = true;
+        if (!this.sensorValidBySystem) {
+            if (this.sensorValidByHost)
+                this.group.push(this);
+            this.sensorValidBySystem = true;
         }
+    }
+
+    public invalidateBySystem(): void {
+        if (this.sensorValidBySystem) {
+            if (this.sensorValidByHost)
+                arrayRemove(this.group, this);
+            this.sensorValidBySystem = false;
+            this.pairwiseSensors.length = 0;
+        }
+    }
+
+    public receiveMessage(sceneObjHolder: SceneObjHolder, messageType: MessageType, otherSensor: HitSensor): boolean {
+        return this.actor.receiveMessage(sceneObjHolder, messageType, otherSensor, this);
     }
 }
 
@@ -55,7 +83,7 @@ const scratchVec3 = vec3.create();
 export class HitSensorInfo {
     public offset = vec3.create();
 
-    constructor(public name: string, public sensor: HitSensor, private translation: vec3 | null, private baseMtx: mat4 | null, radius: number, offset: vec3, private useCallback: boolean) {
+    constructor(public name: string, public sensor: HitSensor, private translation: vec3 | null, private baseMtx: mat4 | null, radius: number, offset: ReadonlyVec3, private useCallback: boolean) {
         vec3.copy(this.offset, offset);
     }
 
@@ -93,7 +121,7 @@ export class HitSensorInfo {
 export class HitSensorKeeper {
     public sensorInfos: HitSensorInfo[] = [];
 
-    public add(sceneObjHolder: SceneObjHolder, name: string, sensorType: HitSensorType, pairwiseCapacity: number, radius: number, actor: LiveActor, offset: vec3): void {
+    public add(sceneObjHolder: SceneObjHolder, name: string, sensorType: HitSensorType, pairwiseCapacity: number, radius: number, actor: LiveActor, offset: ReadonlyVec3): void {
         const sensor = new HitSensor(sceneObjHolder, sensorType, pairwiseCapacity, radius, actor);
         const sensorInfo = new HitSensorInfo(name, sensor, null, null, radius, offset, false);
         this.sensorInfos.push(sensorInfo);
@@ -105,6 +133,16 @@ export class HitSensorKeeper {
             if (this.sensorInfos[i].name === name)
                 return this.sensorInfos[i].sensor;
         return null;
+    }
+
+    public invalidate(): void {
+        for (let i = 0; i < this.sensorInfos.length; i++)
+            this.sensorInfos[i].sensor.invalidate();
+    }
+
+    public validate(): void {
+        for (let i = 0; i < this.sensorInfos.length; i++)
+            this.sensorInfos[i].sensor.validate();
     }
 
     public invalidateBySystem(): void {
@@ -135,30 +173,6 @@ export class HitSensorKeeper {
 
 type SensorGroup = HitSensor[];
 
-export function isSensorPlayer(sensor: HitSensor): boolean {
-    return sensor.isType(HitSensorType.Player);
-}
-
-export function isSensorRide(sensor: HitSensor): boolean {
-    return sensor.sensorType > 0x08 && sensor.sensorType < 0x12;
-}
-
-export function isSensorRush(sensor: HitSensor): boolean {
-    return sensor.sensorType > 0x6F && sensor.sensorType < 0x74;
-}
-
-export function isSensorAutoRush(sensor: HitSensor): boolean {
-    return sensor.sensorType > 0x60 && sensor.sensorType < 0x6E;
-}
-
-export function isSensorMapObj(sensor: HitSensor): boolean {
-    return sensor.sensorType > 0x45 && sensor.sensorType < 0x5F;
-}
-
-export function isSensorNpc(sensor: HitSensor): boolean {
-    return sensor.sensorType > 0x04 && sensor.sensorType < 0x06;
-}
-
 export class SensorHitChecker extends NameObj {
     private playerGroup: SensorGroup = [];
     private rideGroup: SensorGroup = [];
@@ -169,7 +183,7 @@ export class SensorHitChecker extends NameObj {
 
     constructor(sceneObjHolder: SceneObjHolder) {
         super(sceneObjHolder, 'SensorHitChecker');
-        connectToScene(sceneObjHolder, this, 0x05, -1, -1, -1);
+        connectToScene(sceneObjHolder, this, MovementType.SensorHitChecker, -1, -1, -1);
     }
 
     private clearGroup(group: SensorGroup): void {
@@ -256,4 +270,44 @@ export class SensorHitChecker extends NameObj {
             }
         }
     }
+}
+
+export function isSensorPlayer(sensor: HitSensor): boolean {
+    return sensor.isType(HitSensorType.Player);
+}
+
+export function isSensorNpc(sensor: HitSensor): boolean {
+    return sensor.sensorType > 0x04 && sensor.sensorType < 0x06;
+}
+
+export function isSensorRide(sensor: HitSensor): boolean {
+    return sensor.sensorType > 0x08 && sensor.sensorType < 0x12;
+}
+
+export function isSensorEnemy(sensor: HitSensor): boolean {
+    return sensor.sensorType > 0x13 && sensor.sensorType < 0x44;
+}
+
+export function isSensorMapObj(sensor: HitSensor): boolean {
+    return sensor.sensorType > 0x45 && sensor.sensorType < 0x5F;
+}
+
+export function isSensorAutoRush(sensor: HitSensor): boolean {
+    return sensor.sensorType > 0x60 && sensor.sensorType < 0x6E;
+}
+
+export function isSensorRush(sensor: HitSensor): boolean {
+    return sensor.sensorType > 0x6F && sensor.sensorType < 0x74;
+}
+
+export function isSensorPlayerOrRide(sensor: HitSensor): boolean {
+    return isSensorPlayer(sensor) || isSensorRide(sensor);
+}
+
+export function sendMsgEnemyAttack(sceneObjHolder: SceneObjHolder, recvSensor: HitSensor, sendSensor: HitSensor): boolean {
+    return recvSensor.receiveMessage(sceneObjHolder, MessageType.EnemyAttack, sendSensor);
+}
+
+export function sendArbitraryMsg(sceneObjHolder: SceneObjHolder, messageType: MessageType, recvSensor: HitSensor, sendSensor: HitSensor): boolean {
+    return recvSensor.receiveMessage(sceneObjHolder, messageType, sendSensor);
 }
