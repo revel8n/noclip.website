@@ -8,6 +8,8 @@ import 'simplebar/dist/simplebar.css';
 
 import temp from './common/temp';
 import { LocationBase } from '../AAA_NewUI/SceneBase2';
+import { getDataURLForPath } from '../DataFetcher';
+
 
 const bgColors = [
   "#63E7C2",
@@ -18,6 +20,13 @@ const bgColors = [
   "#80BDFE",
   "#304FFF",
 ];
+
+// let tempScene = 'mkwii_shopping_course';
+let tempScene = 'mkwii_treehouse_course';
+// let tempScene = 'mkwii_koopa_course';
+// let tempScene = 'mkwii_truck_course';
+let shotCount = 5;
+let previewsEnabled = false;
 
 export class NUI {
   public node: HTMLElement;
@@ -46,6 +55,8 @@ export class NUI {
   private selectedRegion: string;
   private selectedLocation: string;
 
+  private previewedLocation: string | null;
+
   public loadLocation: (location: LocationBase) => void;
 
   private regionOrder: string[];
@@ -65,6 +76,16 @@ export class NUI {
     // this.node.parentElement?.addEventListener('click', () => this.toggleMenu());
 
     this.node.addEventListener('click', (e) => this.click(e), false);
+
+
+    let locationsNode = document.querySelector('.sw-locations') as HTMLDivElement;
+
+    if(previewsEnabled) {
+      locationsNode.addEventListener('mouseover', (e) => this.locationOver(e), false);
+      locationsNode.addEventListener('mouseout', (e) => this.locationLeave(e), false);
+    }
+
+
     document.addEventListener('keydown', (e) => this.onKeydown(e));
 
     this.gridScrollbar = new SimpleBar(this.gridScroll, { autoHide: true });
@@ -97,6 +118,28 @@ export class NUI {
           }
           return;
       }
+    }
+  }
+
+  private locationOver(e: any) {
+    if (e.target !== e.currentTarget) {
+      if(e.target.classList.contains('location')) {
+        const locationId = e.target.dataset.location;
+        if (locationId != this.previewedLocation) {
+          this.previewedLocation = locationId;
+          if(this.previewedLocation != null) {
+            this.previewLocation(this.locationMap[this.previewedLocation], e.target);
+          }
+        }
+      }
+    }
+  }
+
+  private locationLeave(e: any) {
+    const locationId = e.target.dataset.location;
+    if (locationId == this.previewedLocation) {
+      this.previewedLocation = null;
+      this.clearPreview();
     }
   }
 
@@ -187,16 +230,16 @@ export class NUI {
     let html = [];
     if(this.regionOrder.length > 1) {
       html.push(
-        `<div class="region" data-region="all">
-          <div class="region-title">All</div>
+        `<div class="region alt-a" data-region="all">
+          <div class="region-title"><span>All</span></div>
         </div>`
       );
     }
 
     this.regionOrder.forEach((region) => {
       html.push(
-        `<div class="region" data-region="${region}">
-          <div class="region-title">${region}</div>
+        `<div class="region alt-a" data-region="${region}">
+          <div class="region-title"><span>${region}</span></div>
         </div>`
       );
     });
@@ -247,17 +290,26 @@ export class NUI {
     // todo infer sub groupings or just assign under one
 
     // @ts-ignore
+    const style = 'mini b squared strong-shadow no-margin condensed anim';
+
     for (const [group, locs] of Object.entries(grouped)) {
       html.push(`<div class="row-title">${group}</div>`);
       html.push(`<div class="sw-location-row">`);
       locs.forEach((location: any) => {
         n += 1;
         let bgColor = bgColors[n % bgColors.length];
+        let title = location.title.replace(/\(.*\)/g, '').trim();
+        // http://noclip.beyond3d.com/_Screenshots/mkwii_shopping_course_${n%7+1}.png
+        let img = location.screenshotURL;
+        img = getDataURLForPath(`/_Screenshots/${tempScene}_${n%shotCount+1}.png`, false);
+        // if(n % 8 == 0) {
+        //   img = 'https://i.imgur.com/vdvxMp0.png';
+        // }
         html.push(
-          `<div class="location mini b" data-location="${location.id}">
-            <div class="location-title">${location.title}</div>
+          `<div class="location ${style}" data-location="${location.id}">
+            <div class="location-title">${title}</div>
             <div class="frame">
-              <div class="location-img-wrapper" style="background-color: ${bgColor}"><img src="http://noclip.beyond3d.com/_Screenshots/mkwii_shopping_course_${n%7+1}.png"></div>
+              <div class="location-img-wrapper" style="background-color: ${bgColor}"><img src="${img}"></div>
             </div>
           </div>`
         );
@@ -270,11 +322,14 @@ export class NUI {
       ungrouped.forEach((location: any) => {
         n += 1;
         let bgColor = bgColors[n % bgColors.length];
+        let title = location.title.replace(/\(.*\)/g, '').trim();
+        let img = location.screenshotURL;
+        img = getDataURLForPath(`/_Screenshots/${tempScene}_${n%shotCount+1}.png`, false);
         html.push(
-          `<div class="location mini b" data-location="${location.id}>
-            <div class="location-title">${location.title}}</div>
+          `<div class="location ${style}" data-location="${location.id}>
+            <div class="location-title">${title}}</div>
             <div class="frame">
-              <div class="location-img-wrapper" style="background-color: ${bgColor}"><img src="http://noclip.beyond3d.com/_Screenshots/mkwii_shopping_course_${n%7+1}.png"></div>
+              <div class="location-img-wrapper" style="background-color: ${bgColor}"><img src="${img}"></div>
             </div>
           </div>`
         );
@@ -286,6 +341,18 @@ export class NUI {
     locArea.innerHTML = html.join('\n');
     let singleRow = locArea.offsetHeight < 200;
 
+    if(style.includes('anim')) {
+
+      const locationBlocks = document.querySelectorAll('.location');
+      for (let i = 0; i < locationBlocks.length; i++) {
+          setTimeout(() => {
+            locationBlocks[i].classList.add('show');
+          }, 50 + i * 20);
+        // }, 200 + (locationBlocks.length - i) * 20);
+      }
+    }
+
+  
     this.menu.classList.toggle('single-row', singleRow);
     this.menuTabs.classList.toggle('single-row', singleRow);
 
@@ -295,7 +362,7 @@ export class NUI {
     let html = [];
     for (let i = 0; i < regions.length; i++) {
       html.push(
-        `<div class="region ${i == 0 ? "active" : ""}">
+        `<div class="region alt-a ${i == 0 ? "active" : ""}">
           <div class="region-title">${regions[i]}</div>
         </div>`
       );
@@ -303,128 +370,14 @@ export class NUI {
     this.regionsList.innerHTML = html.join("\n");
   }
 
-  public debugRegions() {
-    let regions = [
-      // "Goomba Village",
-      "Toad Town",
-      "Toad Town Tunnels",
-      "Peach's Castle",
-      "Shooting Star Summit",
-      "Koopa Village",
-      "Koopa Bros. Fortress",
-      "Mt. Rugged",
-      "Dry Dry Outpost",
-      "Dry Dry Desert",
-      "Dry Dry Ruins",
-      "Forever Forest",
-      "Boo's Mansion",
-      "Gusty Gulch",
-      "Tubba Blubba's Castle",
-      "Shy Guy's Toybox",
-      "Lavalava Island",
-      "Mt. Lavalava",
-      "Flower Fields",
-      "Shiver City",
-      "Crystal Palace",
-      "Bowser's Castle",
-      "System & Debug Maps",
-    ];
+  private previewLocation(location: any, node: HTMLDivElement) {
 
-    regions = [
-      "Mushroom Castle",
-      "First Floor Courses",
-      "Basement Courses",
-      "Second Floor Courses",
-      "Third Floor Courses",
-      "Bowser Levels",
-      "Secret Levels",
-      "Extra DS Levels",
-    ];
-    this.addRegions(regions);
-    // this.debugAddLocations(20, 2, 6);
-    this.tempAdd();
+    let img = node.querySelector('img')!.src;
+    this.placeholder.style.backgroundImage = `url(${img})`;
+    this.placeholder.classList.add('active');
   }
 
-  private tempAdd() {
-    console.log("temp add");
-    let rowTitles = ["Mushroom Castle"];
-    let locationTitles = [
-      "Outdoor Gardens",
-      "Main Foyer",
-      "Basement",
-      "Upstairs",
-      "Courtyard",
-      "Rec Room",
-    ];
-
-    let html = [];
-    let n = 0;
-    for (let i = 0; i < rowTitles.length; i++) {
-      html.push(`<div class="row-title">${rowTitles[i]}</div>`);
-      html.push(`<div class="sw-location-row">`);
-      for (let j = 0; j < locationTitles.length; j++) {
-        let unique = (i + 1) * (j + 1);
-        // let bgColor = sample(bgColors);
-        let bgColor = bgColors[n % bgColors.length];
-        n += 1;
-
-        html.push(
-          `<div class="location mini b ${j == 2 ? "dark" : ""}">
-            <div class="location-title">${locationTitles[j]}</div>
-            <div class="frame">
-              <div class="location-img-wrapper" style="background-color: ${bgColor}"><img src="http://noclip.beyond3d.com/_Screenshots/mkwii_shopping_course_${
-            (n % 7) + 1
-          }.png"></div>
-            </div>
-          </div>`
-        );
-      }
-      html.push("</div>");
-    }
-    document.querySelector(".sw-locations")!.innerHTML = html.join("\n");
-  }
-
-  private debugAddLocations(levels: number, min: number, max: number) {
-    let rowTitles = [
-      "Mushroom Castle",
-      "First Floor Courses",
-      "Basement Courses",
-      "Second Floor Courses",
-      "Third Floor Courses",
-      "Bowser Levels",
-      "Secret Levels",
-      "Extra DS Levels",
-    ];
-    let html = [];
-    let n = 0;
-    for (let i = 0; i < levels; i++) {
-      if (i < rowTitles.length) {
-        html.push(`<div class="row-title">${rowTitles[i]}</div>`);
-      }
-      html.push(`<div class="sw-location-row">`);
-      for (let j = 0; j < randInt(min, max); j++) {
-        let unique = (i + 1) * (j + 1);
-        // let bgColor = sample(bgColors);
-        let bgColor = bgColors[n % bgColors.length];
-        n += 1;
-
-        html.push(
-          `<div class="location mini b">
-            <div class="location-title">Location Title</div>
-            <div class="frame">
-              <div class="location-img-wrapper" style="background-color: ${bgColor}"><img src="http://noclip.beyond3d.com/_Screenshots/mkwii_shopping_course_${
-            (n % 7) + 1
-          }.png"></div>
-            </div>
-          </div>`
-        );
-
-        // html.push(
-        //   `<div class="location-img-wrapper"><img src="https://picsum.photos/450/220?blur=10&random=${unique}"></div>`
-        // );
-      }
-      html.push("</div>");
-    }
-    document.querySelector(".sw-locations")!.innerHTML = html.join("\n");
+  private clearPreview() {
+    this.placeholder.classList.remove('active');
   }
 }

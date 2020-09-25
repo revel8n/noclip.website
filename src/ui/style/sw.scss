@@ -118,6 +118,10 @@ $leftWidth: 420px;
     color: white;
     background: #332f35;
 
+
+    background: #F3F3F6;
+    color: #333;
+
     .game {
       color: inherit;
       font-family: "sohne-mager";
@@ -344,11 +348,9 @@ $scrollRightMargin: 2px;
   left: 432px;
   left: $leftWidth;
 
-
   width: calc(100% - 414px);
   width: calc(100% - 436px);
   width: calc(100% - #{$leftWidth + 4px});
-
 }
 
 .sw-list-scroll:hover {
@@ -388,11 +390,11 @@ $scrollRightMargin: 2px;
   margin-bottom: 0px;
 
   &:after {
-      content: '';
-      width: 100%;
-      height: 1px;
-      background-color: #55555524;
-      margin-top: 8px;
+    content: "";
+    width: 100%;
+    height: 1px;
+    background-color: #55555524;
+    margin-top: 8px;
   }
 
   &.active {
@@ -413,6 +415,39 @@ $scrollRightMargin: 2px;
 
   .region-title {
     pointer-events: none;
+  }
+}
+
+.region.alt-a {
+  margin: 0px 22px 0px 14px;
+  padding: 2px 22px;
+  
+  .region-title {
+    padding: 9px 10px 10px;
+    background-color: transparent;
+    transition: background-color .15s ease;
+    width: fit-content;
+  }
+
+  &:after {
+    content: none;
+  }
+
+  &.active, &:hover {
+    border: none !important;
+    font-weight: inherit;
+
+    .region-title {
+      display: inline-block;
+      position: relative;
+      padding: 9px 10px 10px;
+      background-color: #332f35;
+      color: white;
+    }
+  }
+  
+  &:hover .region-title {
+    // background: #aebff2 !important;
   }
 }
 
@@ -588,6 +623,16 @@ $tileSize: 150px;
 
       transition: background-color 0.2s;
 
+      &.anim {
+        transition: background-color 0.2s ease, opacity 0.2s ease;
+        opacity: 0;
+      }
+
+      &.anim.show {
+        opacity: 1;
+      }
+      
+
       .frame {
         pointer-events: none;
         margin: 5px;
@@ -602,13 +647,38 @@ $tileSize: 150px;
       }
     }
 
+    &.condensed {
+      margin-left: 12px;
+    }
+
+    &.strong-shadow {
+      filter: drop-shadow(0 4px 6px rgba(50, 50, 93, 0.21)) drop-shadow(0 6px 5px rgba(0, 0, 0, 0.21));
+    }
+
+    &.squared {
+      border-radius: 0;
+  
+      .frame .location-img-wrapper {
+          border-radius: 0;
+      }
+    }
+
+    &.no-margin {
+      .frame {
+        margin: 0;
+        padding-bottom: 0px;
+        width: calc(100% - 0px);
+      }
+    }
+
     &:hover {
       /* background: #332f35; */
       color: white;
       background: #aebff2;
     }
 
-    &.dark, &.active {
+    &.dark,
+    &.active {
       background: #332f35;
       color: white;
     }
@@ -807,51 +877,49 @@ $radius: 8px;
   font-family: "Whitney SSm";
 }
 
-
 .sw-logo {
   font-family: "sohne-mager";
-    /* font-family: "sohne-halbfett"; */
-    /* font-weight: initial; */
-    /* font-size: 25px; */
-    font-weight: 800;
-    text-align: right;
-    width: 100%;
-    /* text-align: center; */
-    /* margin-left: 0px; */
-    /* margin-top: 0px; */
-    /* margin-left: -15px; */
-    /* margin-left: -10px; */
-    font-size: 28px;
-    /* margin-right: 20px; */
-    /* margin: auto; */
-    /* margin-right: 20px; */
-    width: 130px;
-    background: #F0F5FA;
-    height: 100%;
-    margin-left: auto;
-    display: flex;
-    justify-content: flex-end;
-    padding-right: 20px;
-    align-items: center;
-    background: #F0F5FA;
-    background-color: #f6f9fc;
+  /* font-family: "sohne-halbfett"; */
+  /* font-weight: initial; */
+  /* font-size: 25px; */
+  font-weight: 800;
+  text-align: right;
+  width: 100%;
+  /* text-align: center; */
+  /* margin-left: 0px; */
+  /* margin-top: 0px; */
+  /* margin-left: -15px; */
+  /* margin-left: -10px; */
+  font-size: 28px;
+  /* margin-right: 20px; */
+  /* margin: auto; */
+  /* margin-right: 20px; */
+  width: 130px;
+  background: #f0f5fa;
+  height: 100%;
+  margin-left: auto;
+  display: flex;
+  justify-content: flex-end;
+  padding-right: 20px;
+  align-items: center;
+  background: #f0f5fa;
+  background-color: #f6f9fc;
 
-    span {
-      color: #999;
-      /* color: hsl(210 50% 75% / 1); */
-      /* color: hsl(225 72% 75% / 1); */
-      /* color: #332f35; */
-      /* color: #6772e5; */
-      /* color: #7dabf8; */
-      color: hsl(0 22% 80% / 1);
-      color: hsl(235 40% 82% / 1);
-      color: hsl(2 35% 80% / 1);
+  span {
+    color: #999;
+    /* color: hsl(210 50% 75% / 1); */
+    /* color: hsl(225 72% 75% / 1); */
+    /* color: #332f35; */
+    /* color: #6772e5; */
+    /* color: #7dabf8; */
+    color: hsl(0 22% 80% / 1);
+    color: hsl(235 40% 82% / 1);
+    color: hsl(2 35% 80% / 1);
 
-      color: hsl(0 25% 78% / 1);
+    color: hsl(0 25% 78% / 1);
 
-      color: #d7c1c1;
+    color: #d7c1c1;
 
-      color: hsl(235 40% 82% / 1);
-
-    }
+    color: hsl(235 40% 82% / 1);
+  }
 }

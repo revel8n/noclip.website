@@ -15,11 +15,17 @@ html,
   background: white;
   background-image: url('./outset.png');
   background-image: url('https://i.imgur.com/Mpy0ziH.png');
+  background-repeat: no-repeat;
+  background-size: cover;
   filter: blur(4px);
-  display: none;
+  filter: blur(6px);
+  // display: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
 
   &.active {
-    display: block;
+    // display: block;
+    opacity: 1;
   }
 }
 
