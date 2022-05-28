@@ -72,6 +72,7 @@ import * as Scenes_TheWitness from './TheWitness/Scenes_TheWitness';
 import * as Scenes_FFX from './FinalFantasyX/scenes';
 import * as Scenes_WiiBanner from './Common/NW4R/lyt/Scenes_WiiBanner';
 import * as Scenes_DiddyKongRacing from './DiddyKongRacing/scenes';
+import * as Scenes_deBlob from './deBlob/Scenes_deBlob';
 
 import { DroppedFileSceneDesc, traverseFileSystemDataTransfer } from './Scenes_FileDrops';
 
@@ -158,6 +159,7 @@ const sceneGroups = [
     Scenes_TeamFortress2.sceneGroup,
     Scenes_Portal.sceneGroup,
     "Experimental",
+    Scenes_deBlob.sceneGroup,
     Scenes_DonkeyKong64.sceneGroup,
     Scenes_DonkeyKongCountryReturns.sceneGroup,
     Scenes_Elebits.sceneGroup,
