@@ -16,6 +16,11 @@ export function downloadBlob(filename: string, blob: Blob): void {
     window.URL.revokeObjectURL(url);
 }
 
+export function downloadText(filename: string, str: string, type: string = 'application/text'): void {
+    const blob = new Blob([str], { type });
+    downloadBlob(filename, blob);
+}
+
 export function downloadBufferSlice(filename: string, buffer: ArrayBufferSlice, type: string = 'application/octet-stream'): void {
     const blob = new Blob([buffer.createTypedArray(Uint8Array)], { type });
     downloadBlob(filename, blob);

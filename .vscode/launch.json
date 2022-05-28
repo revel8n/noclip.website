@@ -1,23 +1,52 @@
 {
     "version": "0.2.0",
     "configurations": [
-    {
-        "type": "node",
-        "request": "launch",
-        "name": "Launch ZWW Extractor",
-        "program": "${workspaceFolder}/src/WindWaker/tools/zww_extractor.ts",
-        "cwd": "${fileDirname}",
-        "outFiles": ["${fileDirname}/**/*.js"],
-        "skipFiles": [
-            "<node_internals>/**"
-        ]
-    },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch ZWW Extractor",
+            "program": "${workspaceFolder}/src/WindWaker/tools/zww_extractor.ts",
+            "cwd": "${fileDirname}",
+            "outFiles": [
+                "${fileDirname}/**/*.js"
+            ],
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        },
         {
             "type": "chrome",
             "request": "launch",
             "name": "Launch Chrome",
             "url": "http://localhost:8080/",
-            "webRoot": "${workspaceFolder}/src/"
+            "webRoot": "${workspaceFolder}/src/",
+            "sourceMaps": true,
+            "sourceMapPathOverrides": {
+                "webpack://@jstpierre/noclip.website/./src": "${workspaceFolder}/src",
+                "webpack:///./*": "${webRoot}/*",
+                "webpack:///src/*": "${webRoot}/*",
+                "webpack:///*": "*",
+                "webpack:///./~/*": "${webRoot}/node_modules/*",
+                "meteor://💻app/*": "${webRoot}/*"
+            }
+        },
+        {
+            "type": "firefox",
+            "request": "launch",
+            "name": "Launch Firefox",
+            "url": "http://localhost:8080/",
+            "webRoot": "${workspaceRoot}/src/",
+            "firefoxExecutable": "C:/Program Files/Firefox Developer Edition/firefox.exe",
+            "pathMappings": [
+                {
+                    "url": "webpack://jstpierre/noclip.website/src",
+                    "path": "${workspaceFolder}/src"
+                },
+                {
+                    "url": "webpack:///src",
+                    "path": "${workspaceFolder}/src"
+                }
+            ]
         }
     ]
 }

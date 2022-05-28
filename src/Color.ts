@@ -119,12 +119,27 @@ export function colorFromARGB8(dst: Color, n: number): void {
     dst.b = ((n >>>  0) & 0xFF) / 0xFF;
 }
 
+export function colorNewFromARGB8(n: number): Color {
+    const dst = colorNewFromRGBA(0, 0, 0, 0);
+    colorFromARGB8(dst, n);
+    return dst;
+}
+
 export function colorToRGBA8(src: Color): number {
     return (
         (src.r * 0xFF) << 24 |
         (src.g * 0xFF) << 16 |
         (src.b * 0xFF) <<  8 |
         (src.a * 0xFF) <<  0
+    );
+}
+
+export function colorToARGB8(src: Color): number {
+    return (
+        (src.a * 0xFF) << 24 |
+        (src.r * 0xFF) << 16 |
+        (src.g * 0xFF) <<  8 |
+        (src.b * 0xFF) <<  0
     );
 }
 

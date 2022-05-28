@@ -1175,7 +1175,7 @@ class FrameDebouncer {
         if (this.timeoutId !== null)
             this.clear();
         if (this.callback !== null)
-            this.timeoutId = setTimeout(this.onframe, this.timeout);
+            this.timeoutId = window.setTimeout(this.onframe, this.timeout);
     }
 
     public clear() {
@@ -2365,7 +2365,7 @@ class StudioPanel extends FloatingPanel {
                     this.elem.style.display = 'none';
                 }
                 if (this.delayStartCheckbox.checked) {
-                    setTimeout(() => {
+                    window.setTimeout(() => {
                         this.animationManager.playAnimation(this.loopAnimationCheckbox.checked);
                     }, 2000);
                 } else {
