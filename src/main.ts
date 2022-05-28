@@ -73,6 +73,7 @@ import * as Scenes_FFX from './FinalFantasyX/scenes';
 import * as Scenes_WiiBanner from './Common/NW4R/lyt/Scenes_WiiBanner';
 import * as Scenes_DiddyKongRacing from './DiddyKongRacing/scenes';
 import * as Scenes_deBlob from './deBlob/Scenes_deBlob';
+import * as Scenes_deBlob2 from './deBlob2/Scenes_deBlob2';
 
 import { DroppedFileSceneDesc, traverseFileSystemDataTransfer } from './Scenes_FileDrops';
 
@@ -160,6 +161,7 @@ const sceneGroups = [
     Scenes_Portal.sceneGroup,
     "Experimental",
     Scenes_deBlob.sceneGroup,
+    Scenes_deBlob2.sceneGroup,
     Scenes_DonkeyKong64.sceneGroup,
     Scenes_DonkeyKongCountryReturns.sceneGroup,
     Scenes_Elebits.sceneGroup,
