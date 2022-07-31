@@ -461,7 +461,7 @@ export function TRB_LoadSkeleton(ctx: TRB_LoadContext, offset: number | undefine
     const littleEndian = ctx.littleEndian;
     const view = ctx.view;
     const name = TRB_LoadContext__ResolvePtrString(ctx, offset + 0x38);
-    const bounding_sphere = readVec4(view, offset + 0x00)!;
+    const bounding_sphere = readVec4(view, offset + 0x00, littleEndian)!;
     const count = view.getUint16(offset + 0x10, littleEndian);
     const joints = TRB_LoadStructArray(ctx, TRB_LoadContext__ResolvePtr(ctx, offset + 0x18), count, 0xB0, TRB_LoadJoint);
 
@@ -714,7 +714,7 @@ export function TRB_TCMD_LoadModel(ctx: TRB_LoadContext, symbol_type: string, sy
     const view = ctx.view;
 
     const name = TRB_LoadContext__ResolvePtrString(ctx, offset + 0x1C)!;
-    const bounding_sphere = readVec4(view, offset + 0x00);
+    const bounding_sphere = readVec4(view, offset + 0x00, littleEndian);
     const mesh_info = TRB_LoadOffsetToStructPointerArray(ctx, offset + 0x10, TRB_TCMD_LoadMesh);
 
     const collision = null; //TRB_LoadCollision(ctx, TRB_LoadContext__ResolvePtr(ctx, offset + 0x08));

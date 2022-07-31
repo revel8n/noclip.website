@@ -58,7 +58,7 @@ export function TRB_Archive_ParseDataBlock(buffer: ArrayBufferSlice, littleEndia
     const view = buffer.createDataView();
 
     const magic = view.getUint32(0x00);
-    const dataSize = view.getUint32(0x04);
+    const dataSize = view.getUint32(0x04, littleEndian);
     const dataBuffer = buffer.subarray(0x08, dataSize);
 
     return { magic, dataSize, dataBuffer, littleEndian };
@@ -101,7 +101,7 @@ export function TRB_ArchiveParse(buffer: ArrayBufferSlice): TRB_Archive {
         const source_index = relocation_info[i].sourceIndex;
         const target_index = relocation_info[i].targetIndex;
         const source_offset = relocation_info[i].sourceOffset + section_offsets[source_index];
-        const target_offset = section_view.getUint32(source_offset) + section_offsets[target_index];
+        const target_offset = section_view.getUint32(source_offset, littleEndian) + section_offsets[target_index];
 
         source_offsets.push(source_offset);
         target_offsets.push(target_offset);
@@ -185,7 +185,7 @@ export interface SECT_DataBlock extends TRB_ArchiveDataBlock {
 }
 
 export function SECT_ParseDataBlock(buffer: ArrayBufferSlice, littleEndian?: boolean | undefined): SECT_DataBlock {
-    const { magic, dataSize, dataBuffer } = TRB_Archive_ParseDataBlock(buffer);
+    const { magic, dataSize, dataBuffer } = TRB_Archive_ParseDataBlock(buffer, littleEndian);
     const view = dataBuffer.createDataView();
 
     return { magic, dataSize, dataBuffer, littleEndian };
